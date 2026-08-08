@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CodeMind.Domain\CodeMind.Domain.csproj" />
+    <ProjectReference Include="..\CodeMind.Infrastructure\CodeMind.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
