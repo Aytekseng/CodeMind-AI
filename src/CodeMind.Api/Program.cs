@@ -16,6 +16,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService,CurrentUserService>();
+builder.Services.AddScoped<IAuthService,AuthService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -32,6 +33,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddAutoMapper(cfg => 
+{
+    cfg.AddProfile<CodeMind.Domain.Mappings.MappingProfile>();
+});
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 

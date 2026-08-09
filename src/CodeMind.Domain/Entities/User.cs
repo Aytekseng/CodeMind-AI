@@ -8,6 +8,10 @@ public class User : BaseEntity
     
     // Sisteme giriş yapmak için kullanılan e-posta adresi
     public string Email { get; set; } = string.Empty;
+
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
     
     // Şifrelenmiş parola bilgisi (Hash)
     public string PasswordHash { get; set; } = string.Empty;
