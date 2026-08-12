@@ -1,18 +1,63 @@
-version: '3.8'
-
 services:
   postgres:
     image: ankane/pgvector:latest
     container_name: codemind-postgres
+    env_file: .env
     environment:
-      POSTGRES_USER: codemind
-      POSTGRES_PASSWORD: codemindpassword
-      POSTGRES_DB: codemind_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: codemind-pgadmin
+    env_file: .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  kafka:
+    image: bitnamilegacy/kafka:3.7.0
+    container_name: codemind-kafka
+    env_file: .env
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ENABLE_KRAFT: ${KAFKA_ENABLE_KRAFT}
+      KAFKA_CFG_PROCESS_ROLES: ${KAFKA_CFG_PROCESS_ROLES}
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: ${KAFKA_CFG_CONTROLLER_LISTENER_NAMES}
+      KAFKA_CFG_LISTENERS: ${KAFKA_CFG_LISTENERS}
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP}
+      KAFKA_CFG_ADVERTISED_LISTENERS: ${KAFKA_CFG_ADVERTISED_LISTENERS}
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: ${KAFKA_CFG_INTER_BROKER_LISTENER_NAME}
+      KAFKA_CFG_NODE_ID: ${KAFKA_CFG_NODE_ID}
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: ${KAFKA_CFG_CONTROLLER_QUORUM_VOTERS}
+      ALLOW_PLAINTEXT_LISTENER: ${ALLOW_PLAINTEXT_LISTENER}
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: codemind-kafka-ui
+    env_file: .env
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ${KAFKA_CLUSTERS_0_NAME}
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS}
+    depends_on:
+      - kafka
+
 volumes:
   pgdata:
+  kafka_data:

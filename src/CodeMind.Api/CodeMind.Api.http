@@ -4,3 +4,9 @@ GET {{CodeMind.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Kafka Test Mesajı Gönder
+POST {{CodeMind.Api_HostAddress}}/api/test/send-kafka-message
+Accept: application/json
+
+###
