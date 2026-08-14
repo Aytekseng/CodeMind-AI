@@ -483,3 +483,7 @@ $RECYCLE.BIN/
 
 # Env Files
 .env
+
+# Python
+.venv/
+__pycache__/

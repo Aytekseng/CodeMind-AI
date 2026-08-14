@@ -1,0 +1,7 @@
+confluent-kafka
+langchain
+langchain-text-splitters
+litellm
+pydantic
+pydantic-settings
+python-dotenv
