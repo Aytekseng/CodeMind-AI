@@ -1,7 +1,9 @@
 confluent-kafka
 langchain
 langchain-text-splitters
-litellm
+langchain-community
+langchain-postgres
+psycopg[binary,pool]
 pydantic
 pydantic-settings
 python-dotenv
