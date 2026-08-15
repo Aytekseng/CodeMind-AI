@@ -1,37 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
+using CodeMind.Domain.Interfaces;
+using CodeMind.Domain.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
 public class DocumentController : ControllerBase
 {
-    private readonly IMinIOService _minIOService;
-    private readonly IMessageProducer _kafkaProducer;
+    private readonly IDocumentService _documentService;
 
-    public DocumentController(IMinIOService minIOService, IMessageProducer kafkaProducer)
+    public DocumentController(IDocumentService documentService)
     {
-        _minIOService = minIOService;
-        _kafkaProducer = kafkaProducer;
+        _documentService = documentService;
     }
 
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
-        if(file == null || file.Length == 0)
-            return BadRequest("Lütfen bir dosya seçin.");
+        if (file == null || file.Length == 0)
+            return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi.", "Lütfen bir dosya seçin."));
 
         using var stream = file.OpenReadStream();
-        string savedObjectName = await _minIOService.UploadFileAsync(stream, file.FileName, file.ContentType);
+        var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType);
 
-        var eventMessage = new
-        {
-            FileId = Guid.NewGuid(),
-            FileName = file.FileName,
-            ObjectKey = savedObjectName
-        };
+        if (!response.IsSuccess)
+            return BadRequest(response);
 
-        await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-
-        return Ok(new {message = "Dosya yüklendi ve analize gönderildi.", objectKey = savedObjectName});
+        return Ok(response);
     }
-
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using CodeMind.Api.Hubs;
 using CodeMind.Domain.Interfaces;
 using CodeMind.Infrastructure.Data;
 using CodeMind.Infrastructure.Services;
@@ -19,6 +20,10 @@ builder.Services.AddScoped<ICurrentUserService,CurrentUserService>();
 builder.Services.AddScoped<IAuthService,AuthService>();
 builder.Services.AddScoped<IMessageProducer, KafkaProducer>();
 builder.Services.AddSingleton<IMinIOService, MinIOService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IMessageConsumer, CodeMind.Infrastructure.Messaging.KafkaConsumer>();
+builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -78,6 +83,7 @@ app.MapGet("/weatherforecast", () =>
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<AnalysisHub>("/analysis-hub");
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)

@@ -16,3 +16,11 @@ class FileUploadedEvent(BaseModel):
     # Pydantic, hem camelCase hem de snake_case ile çalışabilmesi için populate_by_name kullanır
     class Config:
         populate_by_name = True
+
+class AnalysisCompletedEvent(BaseModel):
+    """AI Worker'dan C# tarafına gönderilecek sonuç mesajı."""
+    file_id: str = Field(alias="FileId")
+    severity: str = Field(alias="Severity", default="Medium")
+    ai_suggestion: str = Field(alias="AiSuggestion", default="")
+    class Config:
+        populate_by_name = True
