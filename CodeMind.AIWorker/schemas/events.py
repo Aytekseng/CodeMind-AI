@@ -9,6 +9,7 @@ class FileUploadedEvent(BaseModel):
     file_id: str = Field(alias="FileId", default="")
     file_name: str = Field(alias="FileName", default="")
     file_path: str = Field(alias="FilePath", default="")
+    object_key: str = Field(alias="ObjectKey", default="")
     user_id: str = Field(alias="UploadedByUserId", default="")
     tenant_id: Optional[str] = Field(alias="TenantId", default=None)
 

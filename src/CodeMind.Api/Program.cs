@@ -18,6 +18,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService,CurrentUserService>();
 builder.Services.AddScoped<IAuthService,AuthService>();
 builder.Services.AddScoped<IMessageProducer, KafkaProducer>();
+builder.Services.AddSingleton<IMinIOService, MinIOService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
