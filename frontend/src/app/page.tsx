@@ -1,3 +1,7 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
 import { UploadCloud, ShieldAlert, Cpu, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -5,6 +9,13 @@ import { Badge } from "@/components/ui/badge"
 import { DragDropArea } from "@/components/upload/DragDropArea"
 
 export default function Home() {
+  const scrollToUpload = () => {
+    const el = document.getElementById("upload-section")
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" })
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-10">
       {/* Hero Welcome Section */}
@@ -15,7 +26,7 @@ export default function Home() {
         <div className="relative z-10 max-w-2xl space-y-4">
           <Badge variant="default" className="gap-1.5 py-1 px-3">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>CodeMind AI v1.0 Dev</span>
+            <span>CodeMind AI v1.0 Production Ready</span>
           </Badge>
 
           <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -27,26 +38,28 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Button variant="cyber" size="lg" className="gap-2">
+            <Button variant="cyber" size="lg" onClick={scrollToUpload} className="gap-2 cursor-pointer">
               <UploadCloud className="h-4 w-4" />
               <span>Analize Başla</span>
             </Button>
-            <Button variant="outline" size="lg" className="gap-2">
-              <span>Mimari Raporunu İncele</span>
-              <ArrowRight className="h-4 w-4 text-cyan-400" />
-            </Button>
+            <Link href="/dashboard">
+              <Button variant="outline" size="lg" className="gap-2 cursor-pointer">
+                <span>Mimari Raporunu İncele</span>
+                <ArrowRight className="h-4 w-4 text-cyan-400" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Upload Box Section */}
-      <div className="space-y-4">
+      <div id="upload-section" className="space-y-4 scroll-mt-24">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Kod Dosyası Yükleme</h2>
             <p className="text-xs text-zinc-400">Tekil kod dosyanızı (.cs, .py, .js, .ts vb.) analiz için bırakın veya seçin.</p>
           </div>
-          <Badge variant="success" className="text-xs">Aşama 2: Sürükle-Bırak Aktif</Badge>
+          <Badge variant="success" className="text-xs">Sürükle-Bırak & Otomatik AI Analizi</Badge>
         </div>
 
         {/* Interactive Drag & Drop Area */}

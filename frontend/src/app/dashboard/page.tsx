@@ -3,8 +3,9 @@
 import * as React from "react"
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, ShieldAlert, Cpu, Sparkles, FileCode2, ArrowUpRight, Loader2 } from "lucide-react"
+import { ShieldCheck, ShieldAlert, Cpu, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { ScoreRadarChart } from "@/components/dashboard/ScoreRadarChart"
 import { SeverityBreakdown } from "@/components/dashboard/SeverityBreakdown"
 import { CodeDiffViewer } from "@/components/analysis/CodeDiffViewer"
@@ -40,6 +41,8 @@ function DashboardContent() {
           if (reportRes.isSuccess && reportRes.data) {
             setReportDetail(reportRes.data)
           }
+        } else {
+          setReportDetail(null)
         }
       } catch (err) {
         console.error("Dashboard verileri yüklenirken hata:", err)
@@ -99,37 +102,37 @@ function DashboardContent() {
 
         <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-medium text-zinc-400">Kritik & Yüksek Zafiyet</CardTitle>
+            <ShieldAlert className="h-4 w-4 text-rose-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-extrabold text-rose-400 font-mono">
+              {(stats?.criticalCount ?? 0) + (stats?.highCount ?? 0)}
+            </div>
+            <p className="text-[11px] text-rose-400/80 mt-1">
+              {(stats?.criticalCount ?? 0)} Kritik, {(stats?.highCount ?? 0)} Yüksek
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel glass-panel-hover border-white/10">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-medium text-zinc-400">Ortalama Güvenlik Skoru</CardTitle>
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-extrabold text-emerald-400 font-mono">
-              {stats?.averageScore ?? 85} / 100
+              {stats?.averageScore ?? 85.0}/100
             </div>
             <p className="text-[11px] text-zinc-400 mt-1">
-              OWASP Top 10 standartlarında
+              AI Denetim Puanı
             </p>
           </CardContent>
         </Card>
 
         <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-zinc-400">Kritik Güvenlik Açığı</CardTitle>
-            <ShieldAlert className="h-4 w-4 text-rose-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-rose-400 font-mono">
-              {stats?.criticalCount ?? 0} Adet
-            </div>
-            <p className="text-[11px] text-rose-300/80 mt-1">
-              {stats?.criticalCount ? "Acil müdahale öneriliyor" : "Kritik açık tespit edilmedi"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-panel glass-panel-hover border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-zinc-400">AI Çözüm Durumu</CardTitle>
+            <CardTitle className="text-xs font-medium text-zinc-400">Model Motoru</CardTitle>
             <Cpu className="h-4 w-4 text-cyan-400" />
           </CardHeader>
           <CardContent>
@@ -152,9 +155,11 @@ function DashboardContent() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">
-              {reportDetail ? `Analiz Raporu: ${reportDetail.fileName}` : "Son Analiz Edilen Kod İncelemesi"}
+              {reportDetail ? `Analiz Raporu: ${reportDetail.fileName}` : "Kaynak Kod & AI Güvenlik İncelemesi"}
             </h2>
-            <p className="text-xs text-zinc-400">Yapay zekanın tespit ettiği satırlar ve refactor önerileri</p>
+            <p className="text-xs text-zinc-400">
+              {reportDetail ? "Yapay zekanın tespit ettiği satırlar ve refactor önerileri" : "Seçili dosyanın detaylı güvenlik analizi ve kod içeriği"}
+            </p>
           </div>
           {reportDetail && (
             <Badge variant="outline" className="text-xs font-mono uppercase">
@@ -174,7 +179,27 @@ function DashboardContent() {
             vulnerabilityDescription={reportDetail.aiSuggestion}
           />
         ) : (
-          <CodeDiffViewer />
+          <div className="rounded-2xl border border-white/10 bg-[#0d101a]/80 p-12 text-center backdrop-blur-md flex flex-col items-center justify-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+              <FileCode2 className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5 max-w-md">
+              <h3 className="text-base font-semibold text-white">İncelenecek Kod Dosyası Seçilmedi</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Aşağıdaki <span className="text-zinc-200 font-medium">Geçmiş Analiz Raporları</span> tablosundan bir dosyanın yanındaki <span className="text-cyan-400 font-semibold">"İncele"</span> butonuna tıklayarak veya yeni bir dosya yükleyerek kod içeriğini ve Llama 3'ün güvenlik analiz raporunu burada detaylıca inceleyebilirsiniz.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <Button
+                variant="cyber"
+                size="sm"
+                onClick={() => (window.location.href = "/")}
+                className="text-xs"
+              >
+                Yeni Kod Dosyası Yükle
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
