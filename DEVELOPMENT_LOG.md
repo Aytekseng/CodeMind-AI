@@ -71,13 +71,12 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
    * `http://localhost:5083/analysis-hub` uç noktasına otomatik yeniden bağlanmalı (auto-reconnect) WebSockets bağlantısı kuruldu.
    * `ReceiveAnalysisResult(fileId, severity, aiSuggestion)` olayı dinlendi ve durum yönetimi sağlandı.
 2. **Canlı AI Analiz Terminali (`LoadingTerminal.tsx`):**
-   * Dosya analize yollandığında açılan, siyah arka planlı ve renk kodlu (MinIO, Kafka, Worker, PgVector, Llama3) canlı log akışı tasarlandı.
+   * Dosya analize yollandığında açılan, siyah arka planlı ve renk kodlu canlı log akışı tasarlandı.
    * Gerçek SignalR sonucu geldiğinde tamamlanan, kritiklik seviyesini gösteren ve rapor detayına yönlendiren aksiyon barı eklendi.
 3. **Toast Bildirim Sistemi (`sonner`):**
    * `layout.tsx` içerisine karanlık tema uyumlu Toaster bağlandı.
-   * Analiz bittiğinde ekranın sağ alt köşesinde açılan ve kritiklik seviyesine göre zenginleştirilmiş bildirimler kodlandı.
 4. **Sidebar Canlı Durum Entegrasyonu:**
-   * Sol menüdeki `SignalR Hub` rozeti gerçek WebSocket bağlantı durumuna (Connected / Reconnecting / Disconnected) göre dinamik renklendirildi.
+   * Sol menüdeki `SignalR Hub` rozeti gerçek WebSocket bağlantı durumuna göre dinamik renklendirildi.
 
 #### 🔗 Git Commit Geçmişi
 * `8acbd11` - `feat: setup @microsoft/signalr client and custom useSignalR hook`
@@ -88,42 +87,28 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 
 ---
 
-### 🚀 Aşama 4: Dashboard ve Etkileşimli Kod İnceleme (Tamamlandı)
+### 🚀 Aşama 4: Dashboard, Canlı PostgreSQL Entegrasyonu & Etkileşimli İnceleme
 * **Tarih:** 22 Ağustos 2026
-* **Çalışılan Dal (Branch):** `feature/frontend-dashboard` ➔ `main`
+* **Çalışılan Dal (Branch):** `feature/real-data-integration` ➔ `main`
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **Veri Görselleştirme & Grafikler (`Recharts`):**
-   * `ScoreRadarChart.tsx`: Güvenlik, Performans, Mimari, Okunabilirlik ve Temiz Kod skorlarını gösteren altıgen radar grafiği.
-   * `SeverityBreakdown.tsx`: Kritik, Yüksek, Orta ve Düşük bulguların pasta/donut grafiği dağılımı.
-2. **Etkileşimli Kod & Diff Görüntüleyici (`CodeDiffViewer.tsx`):**
-   * `react-syntax-highlighter` (vscDarkPlus teması) ile satır numaralı ve sözdizimi vurgulamalı kod inceleme aracı.
-   * Zafiyetli satırların kırmızı renkle parlaması ve açıklama bildirimleri.
-   * "Mevcut Kod" ile "AI Çözüm Önerisi" arasında tek tıkla geçiş sağlayan dinamik sekmeler ve kopyalama butonu.
-3. **Geçmiş Analiz Tablosu (`AnalysisHistoryTable.tsx`):**
-   * Taranan tüm dosyaların tarih, dil, durum, skor ve zafiyet rozetleriyle listelendiği, anlık arama/filtreleme destekli arşiv tablosu.
-4. **Sayfalar & Rotalar:**
-   * `/dashboard`: Genel güvenlik paneli, metrik kartları, grafikler, kod inceleme ve geçmiş özeti.
-   * `/history`: Detaylı geçmiş analiz arşivi.
-   * `/terminal`: Bağımsız canlı AI terminal akış ekranı.
-   * `/settings`: Model, donanım hızlandırma ve port yapılandırma ayarları ekranı.
-
-#### 📦 Oluşturulan ve Güncellenen Dosyalar
-* `frontend/src/components/dashboard/ScoreRadarChart.tsx`
-* `frontend/src/components/dashboard/SeverityBreakdown.tsx`
-* `frontend/src/components/analysis/CodeDiffViewer.tsx`
-* `frontend/src/components/dashboard/AnalysisHistoryTable.tsx`
-* `frontend/src/app/dashboard/page.tsx`
-* `frontend/src/app/history/page.tsx`
-* `frontend/src/app/terminal/page.tsx`
-* `frontend/src/app/settings/page.tsx`
+1. **.NET Backend API Uç Noktaları:**
+   * `GET /api/Document/history`: PostgreSQL'deki tüm taranan dosyaları ve analiz raporlarını çeker.
+   * `GET /api/Document/{id}/report`: Seçili dosyanın detaylı AI analiz raporunu getirir.
+   * `GET /api/Document/stats`: Gerçek zafiyet dağılımlarını ve ortalama güvenlik skorunu hesaplar.
+   * `AppDbContext` Multi-tenant Row-Level Security global filtreleri JWT token olmadığında sorguları engellemeyecek şekilde dinamikleştirildi.
+2. **Frontend Canlı Veri Bağlantısı:**
+   * `documentService.ts` API istemcisine bağlandı.
+   * `AnalysisHistoryTable.tsx`: Gerçek API çağrıları, zafiyet filtreleri ve doğrudan sayfa içi hızlı inceleme modalı eklendi.
+   * `page.tsx` (/dashboard): Dinamik sayaçlar, gerçek zafiyet pasta grafiği ve Llama 3'ün ürettiği analiz çıktısını içeren `CodeDiffViewer` bağlandı.
 
 #### 🔗 Git Commit Geçmişi
 * `dbb84f9` - `feat: install recharts and react-syntax-highlighter dependencies`
 * `d254d6a` - `feat: build CodeDiffViewer and interactive vulnerability line inspector`
 * `5d57762` - `feat: create dashboard layout with radar charts and history pages`
+* `78b16fe` - `feat: fix query filters in AppDbContext, add document history and stats endpoints, and connect frontend`
 
 #### 🧪 Doğrulama ve Test
-* `npm run build` komutu çalıştırıldı; tüm rotalar (`/`, `/dashboard`, `/history`, `/terminal`, `/settings`) ve TypeScript tipleri **0 hata** ile başarıyla derlendi.
-* Değişiklikler `main` dalına merge edilip GitHub uzak sunucusuna aktarıldı.
+* Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
+* `main` dalına merge edilip GitHub'a push edildi.
