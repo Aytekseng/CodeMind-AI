@@ -58,7 +58,7 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
    * `http://localhost:5083/analysis-hub` uç noktasına otomatik yeniden bağlanmalı (auto-reconnect) WebSockets bağlantısı kuruldu.
    * `ReceiveAnalysisResult(fileId, severity, aiSuggestion)` olayı dinlendi ve durum yönetimi sağlandı.
 2. **Canlı AI Analiz Terminali (`LoadingTerminal.tsx`):**
-   * Dosya analize yollandığında açılan, siyah arka planlı ve renk kodlu canlı log akışı tasarlandı.
+   * Yükleme alanında doğrudan açılan, siyah arka planlı ve gerçek zamanlı log akışı tasarlandı.
    * Gerçek SignalR sonucu geldiğinde tamamlanan, kritiklik seviyesini gösteren ve rapor detayına yönlendiren aksiyon barı eklendi.
 3. **Toast Bildirim Sistemi (`sonner`):**
    * `layout.tsx` içerisine karanlık tema uyumlu Toaster bağlandı.
@@ -73,17 +73,17 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **.NET Backend API Uç Noktaları & Veritabanı Uyumluluğu:**
+1. **.NET Backend API Uç Noktaları & MinIO Dosya Okuma:**
    * `GET /api/Document/history`: PostgreSQL'deki tüm taranan dosyaları ve analiz raporlarını çeker.
-   * `GET /api/Document/{id}/report`: Seçili dosyanın detaylı AI analiz raporunu getirir.
+   * `GET /api/Document/{id}/report`: Seçili dosyanın detaylı AI analiz raporunu ve MinIO'daki orijinal kodunu getirir.
    * `GET /api/Document/stats`: Gerçek zafiyet dağılımlarını ve ortalama güvenlik skorunu hesaplar.
-   * PostgreSQL şemasıyla tam uyum sağlandı (tablolarda bulunmayan `CreatedAt` kolonu temizlendi).
+   * PostgreSQL şemasıyla tam uyum sağlandı.
    * `AppDbContext` Multi-tenant Row-Level Security global filtreleri dinamikleştirildi.
-2. **Frontend Canlı Veri Bağlantısı & Terminal:**
-   * Dosya yükleme mekanizması saf ve sağlam XHR altyapısına geçirilerek `multipart boundary` ve Axios `console.error` sorunları tamamen çözüldü.
-   * `LoadingTerminal.tsx`: Sahte zamanlayıcılar (timer) kaldırılarak doğrudan gerçek HTTP yükleme yanıtlarına, Kafka fırlatma bildirimlerine ve SignalR Llama 3 analiz çıktılarına bağlandı.
-   * `AnalysisHistoryTable.tsx`: Canlı API çağrıları, zafiyet filtreleri ve doğrudan sayfa içi hızlı inceleme modalı eklendi.
-   * `page.tsx` (/dashboard): Dinamik sayaçlar, gerçek zafiyet pasta grafiği ve Llama 3'ün ürettiği analiz çıktısını içeren `CodeDiffViewer` bağlandı.
+2. **Frontend Canlı Akış & Sayfa İçi Terminal:**
+   * Ekstra `/terminal` sayfası kaldırılarak yükleme alanında doğrudan açılan pürüzsüz satır-içi (inline) terminal mimarisine geçildi.
+   * `Header.tsx`: Zil ikonuna canlı SignalR bildirimleri, açılır panel ve sayacı bağlandı.
+   * `AnalysisHistoryTable.tsx`: Tablodaki **İncele** butonu doğrudan `/dashboard?docId=...` adresine yönlendirecek şekilde bağlandı.
+   * `page.tsx` (/dashboard): MinIO'dan gelen gerçek kod ve Llama 3'ün ürettiği gerçek AI önerisini gösteren `CodeDiffViewer` bağlandı.
 
 #### 🔗 Git Commit Geçmişi
 * `dbb84f9` - `feat: install recharts and react-syntax-highlighter dependencies`
@@ -91,6 +91,7 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * `5d57762` - `feat: create dashboard layout with radar charts and history pages`
 * `78b16fe` - `feat: fix query filters in AppDbContext, add document history and stats endpoints, and connect frontend`
 * `407d997` - `fix: match PostgreSQL schema by removing non-existent CreatedAt column and stabilize multipart upload`
+* `65218b4` - `feat: keep live terminal inline on upload, remove redundant terminal page, and connect dashboard report review`
 
 #### 🧪 Doğrulama ve Test
 * Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
