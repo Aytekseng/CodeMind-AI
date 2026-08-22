@@ -1,7 +1,8 @@
 import { UploadCloud, ShieldAlert, Cpu, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { DragDropArea } from "@/components/upload/DragDropArea"
 
 export default function Home() {
   return (
@@ -38,29 +39,18 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Upload Box Placeholder (Stage 2 will replace this) */}
+      {/* Upload Box Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-white">Hızlı Dosya Yükleme</h2>
-            <p className="text-xs text-zinc-400">Tekil kod dosyanızı (.cs, .py, .js, .ts vb.) analiz için yükleyin.</p>
+            <h2 className="text-lg font-semibold text-white">Kod Dosyası Yükleme</h2>
+            <p className="text-xs text-zinc-400">Tekil kod dosyanızı (.cs, .py, .js, .ts vb.) analiz için bırakın veya seçin.</p>
           </div>
-          <Badge variant="outline" className="text-xs">Aşama 1 Tamamlanıyor</Badge>
+          <Badge variant="success" className="text-xs">Aşama 2: Sürükle-Bırak Aktif</Badge>
         </div>
 
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-[#0c0e17]/60 p-12 text-center transition-colors hover:border-cyan-500/40 hover:bg-[#0f1220]/80">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.2)] mb-4">
-            <UploadCloud className="h-8 w-8" />
-          </div>
-          <h3 className="text-base font-semibold text-white">Dosyayı buraya sürükleyip bırakın</h3>
-          <p className="mt-1 text-xs text-zinc-400">veya bilgisayarınızdan seçmek için tıklayın</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <span className="rounded-md bg-zinc-800/80 px-2.5 py-1 text-[11px] font-mono text-zinc-400 border border-zinc-700/50">.cs</span>
-            <span className="rounded-md bg-zinc-800/80 px-2.5 py-1 text-[11px] font-mono text-zinc-400 border border-zinc-700/50">.py</span>
-            <span className="rounded-md bg-zinc-800/80 px-2.5 py-1 text-[11px] font-mono text-zinc-400 border border-zinc-700/50">.js / .ts</span>
-            <span className="rounded-md bg-zinc-800/80 px-2.5 py-1 text-[11px] font-mono text-zinc-400 border border-zinc-700/50">.go / .java</span>
-          </div>
-        </div>
+        {/* Interactive Drag & Drop Area */}
+        <DragDropArea />
       </div>
 
       {/* Feature Highlights */}
