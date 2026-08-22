@@ -96,3 +96,52 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 #### 🧪 Doğrulama ve Test
 * Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
 * `main` dalına merge edilip GitHub'a push edildi.
+
+---
+
+### 🚀 Aşama 5: JWT Kimlik Doğrulama, Multi-Tenancy & Kullanıcı Yönetimi
+* **Tarih:** 22 Ağustos 2026
+* **Çalışılan Dal (Branch):** `feature/jwt-auth-multitenancy` ➔ `main`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Backend Uç Noktaları & Güvenlik:**
+   * `AuthResponseDto`: İsim, soyisim, rol ve şirket adı (`TenantName`) bilgileriyle zenginleştirildi.
+   * `AuthService`: BCrypt şifreleme, JWT oluşturma (`HMAC-SHA256`) ve `GetCurrentUserProfileAsync` metodu eklendi.
+   * `AuthController`: `[Authorize]` korumalı `GET /api/auth/me` profili okuma uç noktası bağlandı.
+   * `DocumentService`: `ICurrentUserService` enjekte edildi; oturum açmış kullanıcıların kod yüklemeleri ve analiz raporları kendi şirket (`TenantId`) havuzunda izole edildi.
+2. **Frontend UI & Oturum Yönetimi:**
+   * `authService.ts`: Tip güvenli `login`, `register`, `getCurrentUser` ve session yönetimi servisleri kuruldu.
+   * `AuthContext.tsx` & `useAuth.ts`: Oturumu reaktif olarak sağlayan context mimarisi kuruldu (`localStorage` senkronizasyonu).
+   * `/login` & `/register`: Siberpunk temalı, cam efektli, form validasyonlu ve Sonner toast entegrasyonlu sayfalar oluşturuldu.
+   * `Header.tsx`: Kullanıcı profil avatarı, şirket adı rozeti ve tek tıkla oturum kapatma menüsü eklendi.
+   * `Sidebar.tsx`: Aktif oturum açıldığında dinamik şirket çalışma alanı kartı bağlandı.
+   * `apiClient.ts`: 401 Unauthorized durumunda otomatik geçersiz token temizleme eklendi.
+
+#### 🧪 Doğrulama ve Test
+* Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
+
+---
+
+### 🚀 Aşama 6: Misafir Kullanıcı Erişim Kısıtlamaları (Guest Access Guard)
+* **Tarih:** 22 Ağustos 2026
+* **Çalışılan Dal (Branch):** `feature/guest-access-restrictions` ➔ `main`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Backend API Koruması:**
+   * `DocumentController.cs`: Controller seviyesinde `[Authorize]` kuralı tanımlandı. Yetkisiz isteklerin (JWT taşımayan) dosya yüklemesi, geçmiş sorgulaması ve istatistikleri çekmesi engellendi (401 Unauthorized).
+2. **Frontend Yetki Koruma Sistemi (AuthGuard):**
+   * `AuthGuard.tsx`: Korunan sayfalar için reaktif erişim bariyeri geliştirildi. Misafir kullanıcılar yetkisiz alanlara girdiğinde kilitli cyberpunk uyarı paneli ve Giriş/Kayıt butonları ile karşılanır.
+   * `Dashboard (/dashboard)`: `AuthGuard` ile sarmalandı.
+   * `Geçmiş (/history)`: `AuthGuard` ile sarmalandı.
+   * `Ayarlar (/settings)`: `AuthGuard` ile sarmalandı.
+3. **Misafir Modu UX İyileştirmeleri:**
+   * `Home (/)`: Giriş yapmamış kullanıcılara özel misafir modu uyarı banner'ı eklendi.
+   * `DragDropArea.tsx`: Giriş yapmadan analiz başlatılmaya çalışıldığında kullanıcı Sonner toast ve Giriş Yap butonu ile yönlendirildi.
+   * `Sidebar.tsx`: Giriş yapmamış kullanıcılara korumalı sayfaların yanında `🔒 Kilitli` rozeti gösterildi.
+
+#### 🧪 Doğrulama ve Test
+* Next.js derlemesi (`npm run build`) **0 hata** ile tamamlandı.
+
+

@@ -1,10 +1,7 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using CodeMind.Domain.DTOs.Auth.Requests;
 using CodeMind.Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 
 namespace CodeMind.Api.Controllers;
 
@@ -18,20 +15,36 @@ public class AuthController : ControllerBase
     {
         _authService = authService;
     }
-    // TODO: Test yapabilmek için geçici bir "Login" veya "GenerateToken" endpoint'i (metodu) yazın.
-    // Gelen isteğe göre JwtSecurityToken kullanarak sahte bir token üretip dönmesini sağlayın.
-    // Token içerisine (Claims) örnek bir TenantId ve UserId gömmeniz gerekecek.
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequestDto requestDto)
     {
-        return Ok(await _authService.RegisterAsync(requestDto));
+        var response = await _authService.RegisterAsync(requestDto);
+        if (!response.IsSuccess)
+            return BadRequest(response);
+
+        return Ok(response);
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequestDto requestDto)
     {
-        return Ok(await _authService.LoginAsync(requestDto));
+        var response = await _authService.LoginAsync(requestDto);
+        if (!response.IsSuccess)
+            return Unauthorized(response);
+
+        return Ok(response);
     }
 
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUser()
+    {
+        var response = await _authService.GetCurrentUserProfileAsync();
+        if (!response.IsSuccess)
+            return NotFound(response);
+
+        return Ok(response);
+    }
 }
+

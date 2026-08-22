@@ -1,12 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { UploadCloud, AlertCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { UploadCloud, AlertCircle, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
 import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
 import { uploadDocumentAsync } from "@/services/documentService"
 import { useSignalR } from "@/hooks/useSignalR"
+import { useAuth } from "@/hooks/useAuth"
+import { toast } from "sonner"
 
 const ALLOWED_EXTENSIONS = [
   "cs", "py", "js", "jsx", "ts", "tsx", "go", "java", "cpp", "c", "sql", "json", "yml", "yaml", "html", "css"
@@ -15,7 +18,10 @@ const MAX_FILE_SIZE_MB = 10
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 export function DragDropArea() {
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+
   const [isDragActive, setIsDragActive] = React.useState<boolean>(false)
   const [validationError, setValidationError] = React.useState<string | null>(null)
   const [isUploading, setIsUploading] = React.useState<boolean>(false)
@@ -97,11 +103,22 @@ export function DragDropArea() {
   const handleStartAnalysis = async () => {
     if (!selectedFile) return
 
+    if (!isAuthenticated) {
+      toast.error("Kod analizi başlatmak için lütfen önce giriş yapın.", {
+        action: {
+          label: "Giriş Yap",
+          onClick: () => router.push("/login"),
+        },
+      })
+      return
+    }
+
     setIsUploading(true)
     setUploadStatus("idle")
     setServerMessage(null)
     setUploadedDocumentId(null)
     setIsAnalyzing(true) // Switch to inline live terminal directly on this page
+
 
     try {
       console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)

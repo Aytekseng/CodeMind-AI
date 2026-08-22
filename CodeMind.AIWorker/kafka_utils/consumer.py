@@ -11,8 +11,11 @@ def start_consuming():
     conf = {
         'bootstrap.servers': settings.KAFKA_BROKER,
         'group.id': settings.KAFKA_GROUP_ID,
-        'auto.offset.reset': 'earliest' # Eğer daha önce okunmamış mesaj varsa baştan okur
+        'auto.offset.reset': 'earliest', # Eğer daha önce okunmamış mesaj varsa baştan okur
+        'max.poll.interval.ms': 900000,  # 15 dakika (Llama 3 8B ve RAG analizlerinin zaman aşımına uğramasını engeller)
+        'session.timeout.ms': 45000,     # Heartbeat kontrolü için 45 saniye
     }
+
 
     consumer = Consumer(conf)
     consumer.subscribe([settings.KAFKA_TOPIC])
@@ -51,12 +54,14 @@ def start_consuming():
                 json_dict = json.loads(raw_data)
                 event = FileUploadedEvent(**json_dict)
                 
-                print(f"    - Dosya Adı: {event.file_name}")
-                print(f"    - Yükleyen Kullanıcı: {event.user_id}")
+                print(f"    - 📄 Dosya Adı        : {event.file_name}")
+                print(f"    - 👤 Kullanıcı (User ID): {event.user_id or 'Belirtilmedi'}")
+                print(f"    - 🏢 Şirket (Tenant ID) : {event.tenant_id or 'Varsayılan'}")
                 
                 # AI / Chunking işlemlerini çağırıyoruz
                 from services.ai_service import process_uploaded_file
                 process_uploaded_file(event)
+
                 
             except Exception as e:
                 print(f"[-] Mesaj işlenirken hata oluştu: {e}")

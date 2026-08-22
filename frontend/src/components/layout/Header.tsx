@@ -1,10 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { Shield, Sparkles, Bell, ExternalLink, ShieldAlert, CheckCircle2, X } from "lucide-react"
+import Link from "next/link"
+import { Shield, Sparkles, Bell, ExternalLink, ShieldAlert, CheckCircle2, User, LogOut, Building2, LogIn, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useSignalR, AnalysisResultEvent } from "@/hooks/useSignalR"
+import { useAuth } from "@/hooks/useAuth"
+import { toast } from "sonner"
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -25,10 +28,14 @@ function GithubIcon({ className }: { className?: string }) {
 
 export function Header() {
   const { latestResult } = useSignalR()
+  const { user, isAuthenticated, logout } = useAuth()
   const [notifications, setNotifications] = React.useState<AnalysisResultEvent[]>([])
-  const [isOpen, setIsOpen] = React.useState<boolean>(false)
+  const [isNotifOpen, setIsNotifOpen] = React.useState<boolean>(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState<boolean>(false)
   const [unreadCount, setUnreadCount] = React.useState<number>(0)
-  const dropdownRef = React.useRef<HTMLDivElement>(null)
+  
+  const notifDropdownRef = React.useRef<HTMLDivElement>(null)
+  const userDropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Listen to SignalR notifications and append to list
   React.useEffect(() => {
@@ -38,23 +45,36 @@ export function Header() {
     }
   }, [latestResult])
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false)
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const handleToggleOpen = () => {
-    setIsOpen((prev) => !prev)
-    if (!isOpen) {
+  const handleToggleNotif = () => {
+    setIsNotifOpen((prev) => !prev)
+    if (!isNotifOpen) {
       setUnreadCount(0)
     }
   }
+
+  const handleLogout = () => {
+    logout()
+    setIsUserMenuOpen(false)
+    toast.info("Oturum kapatıldı.")
+  }
+
+  const initials = user?.firstName && user?.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : (user?.email ? user.email.substring(0, 2).toUpperCase() : "CM")
 
   return (
     <header className="sticky top-0 z-30 flex h-18 w-full items-center justify-between border-b border-white/10 bg-[#090a0f]/80 px-8 backdrop-blur-xl">
@@ -71,17 +91,17 @@ export function Header() {
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        <Badge variant="outline" className="gap-1.5 py-1 px-3 border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
+        <Badge variant="outline" className="gap-1.5 py-1 px-3 border-cyan-500/30 bg-cyan-500/5 text-cyan-300 hidden sm:inline-flex">
           <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
           <span>Llama 3 8B RAG Aktif</span>
         </Badge>
 
         {/* Notifications Bell Dropdown */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative" ref={notifDropdownRef}>
           <Button
             variant="outline"
             size="icon"
-            onClick={handleToggleOpen}
+            onClick={handleToggleNotif}
             className="relative h-9 w-9 rounded-lg border-white/10 hover:border-cyan-500/40"
           >
             <Bell className="h-4 w-4 text-zinc-400 hover:text-white" />
@@ -93,7 +113,7 @@ export function Header() {
           </Button>
 
           {/* Notifications Popover Panel */}
-          {isOpen && (
+          {isNotifOpen && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-white/10 bg-[#0d101a] shadow-2xl backdrop-blur-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between border-b border-white/10 bg-[#121624] px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -155,17 +175,88 @@ export function Header() {
           )}
         </div>
 
+        {/* Auth / User Profile Menu */}
+        {isAuthenticated && user ? (
+          <div className="relative" ref={userDropdownRef}>
+            <button
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] px-2.5 py-1.5 transition-all text-left"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]">
+                {initials}
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-xs font-medium text-white leading-none">
+                  {user.firstName ? `${user.firstName} ${user.lastName}` : user.email}
+                </p>
+                <p className="text-[10px] text-cyan-400 leading-tight mt-0.5">
+                  {user.tenantName || "Şirket"}
+                </p>
+              </div>
+            </button>
+
+            {/* User Popover Panel */}
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-[#0d101a] shadow-2xl backdrop-blur-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-2 space-y-1">
+                <div className="px-3 py-2.5 border-b border-white/10 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-white">
+                      {user.firstName} {user.lastName}
+                    </p>
+                    <Badge variant="outline" className="text-[9px] py-0 border-white/20 text-zinc-400">
+                      {user.role}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 truncate">{user.email}</p>
+                  
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Badge variant="outline" className="text-[10px] py-0 border-cyan-500/30 text-cyan-300">
+                      <Building2 className="h-2.5 w-2.5 mr-1" />
+                      {user.tenantName}
+                    </Badge>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Oturumu Kapat</span>
+                </button>
+              </div>
+            )}
+
+
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link href="/login">
+              <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10">
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Giriş Yap</span>
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button size="sm" className="gap-1.5 h-9 text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Kayıt Ol</span>
+              </Button>
+            </Link>
+          </div>
+        )}
+
         <a
           href="https://github.com/Aytekseng/CodeMind-AI"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Button variant="outline" size="sm" className="gap-2 h-9 text-xs">
-            <GithubIcon className="h-4 w-4" />
-            <span>GitHub</span>
+          <Button variant="outline" size="icon" className="h-9 w-9 border-white/10 hover:border-cyan-500/40">
+            <GithubIcon className="h-4 w-4 text-zinc-400 hover:text-white" />
           </Button>
         </a>
       </div>
     </header>
   )
 }
+

@@ -104,12 +104,18 @@ sequenceDiagram
 - `CodeDiffViewer`: "Mevcut Kod" sekmesinde orijinal kaynak kod, "AI Çözüm Önerisi" sekmesinde ise Llama 3'ün detaylı zafiyet analiz raporu ve güvenlik yaması sabit boyutlu panelde sunuldu.
 - `AnalysisHistoryTable`: Arama, zafiyet filtreleri ve doğrudan Dashboard'a bağlanan "İncele" butonları bağlandı.
 
+### ✅ Aşama 7: JWT Kimlik Doğrulama, Multi-Tenancy & Şirket İzolasyonu
+- `Register` ve `Login` API uç noktaları, BCrypt parola hashleme ve 8 saat geçerli HMAC-SHA256 JWT üretimi sağlandı.
+- `[Authorize]` korumalı `GET /api/auth/me` uç noktası ile profil sorgulama entegre edildi.
+- `DocumentService` içerisinde yüklenen dosyalar ve analiz raporları oturum açmış kullanıcının `TenantId`'sine bağlandı (Multi-Tenancy).
+- Frontend'de siberpunk temalı `/login` ve `/register` sayfaları, `AuthContext` / `useAuth` hook'u, Header profil menüsü ve çıkış yapma mekanizması tamamlandı.
+
 ---
 
 ## 4. Gelecek Yol Haritası (Future Roadmap)
 
 ### 🔴 Zorunlu / Öncelikli Adımlar
-1. **Kimlik Doğrulama ve Yetkilendirme (JWT & Auth):**
+1. **✅ Kimlik Doğrulama ve Yetkilendirme (JWT & Auth) [TAMAMLANDI]:**
    - Kayıt Ol / Giriş Yap (Register/Login) ekranları.
    - JWT token ile kullanıcı ve şirket bazlı (Multi-Tenancy) veri izolasyonu.
 2. **Çoklu Dosya / Proje Arşivi (.ZIP) Yükleme Desteği:**
@@ -124,3 +130,4 @@ sequenceDiagram
    - Dashboard'daki analiz raporunun kurumsal formatta PDF olarak indirilmesi.
 3. **GitHub / GitLab Webhook Entegrasyonu:**
    - Pull Request açıldığında otomatik kod denetimi yapıp PR altına yorum olarak rapor bırakma.
+

@@ -11,4 +11,6 @@ public interface IAuthService
     // Örnek: Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto request);
     Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterRequestDto requestDto);
     Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto requestDto);
+    Task<ApiResponse<AuthResponseDto>> GetCurrentUserProfileAsync();
 }
+

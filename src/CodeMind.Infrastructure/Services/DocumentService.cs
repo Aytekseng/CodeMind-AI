@@ -16,12 +16,18 @@ public class DocumentService : IDocumentService
     private readonly IMinIOService _minIOService;
     private readonly IMessageProducer _kafkaProducer;
     private readonly AppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
-    public DocumentService(IMinIOService minIOService, IMessageProducer kafkaProducer, AppDbContext dbContext)
+    public DocumentService(
+        IMinIOService minIOService,
+        IMessageProducer kafkaProducer,
+        AppDbContext dbContext,
+        ICurrentUserService currentUserService)
     {
         _minIOService = minIOService;
         _kafkaProducer = kafkaProducer;
         _dbContext = dbContext;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType)
@@ -31,28 +37,42 @@ public class DocumentService : IDocumentService
             // 1. MinIO'ya yükle
             string savedObjectName = await _minIOService.UploadFileAsync(fileStream, fileName, contentType);
 
-            // 2. Veritabanına Tenant & Project kaydını garantile
-            var tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
-            if (tenant == null)
+            // 2. Tenant & Project belirleme (Giriş yapılmışsa kullanıcının şirketi, değilse varsayılan)
+            Guid tenantId = _currentUserService.TenantId;
+            Tenant? tenant = null;
+
+            if (tenantId != Guid.Empty)
             {
-                tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
-                _dbContext.Tenants.Add(tenant);
-                await _dbContext.SaveChangesAsync();
+                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == tenantId);
             }
 
-            var project = await _dbContext.Projects.IgnoreQueryFilters().FirstOrDefaultAsync();
+            if (tenant == null)
+            {
+                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+                if (tenant == null)
+                {
+                    tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
+                    _dbContext.Tenants.Add(tenant);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+
+            var project = await _dbContext.Projects.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.TenantId == tenant.Id);
+
             if (project == null)
             {
                 project = new Project 
                 { 
                     Id = Guid.NewGuid(), 
-                    Name = "Varsayılan Kod Tabanı", 
+                    Name = $"{tenant.Name} Repository", 
                     TenantId = tenant.Id, 
                     Language = GetLanguageFromFileName(fileName) 
                 };
                 _dbContext.Projects.Add(project);
                 await _dbContext.SaveChangesAsync();
             }
+
 
             var document = new Document 
             { 
@@ -70,11 +90,14 @@ public class DocumentService : IDocumentService
             {
                 FileId = document.Id,
                 FileName = fileName,
-                ObjectKey = savedObjectName
+                ObjectKey = savedObjectName,
+                UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
+                TenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId.ToString() : tenant.Id.ToString()
             };
 
             await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            Console.WriteLine($"[DocumentService] Dosya MinIO'ya yüklendi ve Kafka kuyruğuna atıldı. ID: {document.Id}");
+            Console.WriteLine($"[DocumentService] Dosya MinIO'ya yüklendi ve Kafka kuyruğuna atıldı. ID: {document.Id} | User ID: {eventMessage.UploadedByUserId}");
+
 
             // 4. Standart ApiResponse formatında dön
             var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
@@ -91,9 +114,19 @@ public class DocumentService : IDocumentService
     {
         try
         {
-            var documents = await _dbContext.Documents
-                .IgnoreQueryFilters()
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var documents = await query
                 .Include(d => d.AnalysisReports)
+                .OrderByDescending(d => d.Id)
                 .ToListAsync();
 
             var historyList = documents.Select(d =>
@@ -128,8 +161,17 @@ public class DocumentService : IDocumentService
     {
         try
         {
-            var document = await _dbContext.Documents
-                .IgnoreQueryFilters()
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var document = await query
                 .Include(d => d.AnalysisReports)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -173,10 +215,20 @@ public class DocumentService : IDocumentService
     {
         try
         {
-            var documents = await _dbContext.Documents
-                .IgnoreQueryFilters()
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var documents = await query
                 .Include(d => d.AnalysisReports)
                 .ToListAsync();
+
 
             var stats = new DashboardStatsDto
             {

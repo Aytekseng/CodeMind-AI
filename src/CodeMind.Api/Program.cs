@@ -24,7 +24,12 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IMessageConsumer, CodeMind.Infrastructure.Messaging.KafkaConsumer>();
 builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters

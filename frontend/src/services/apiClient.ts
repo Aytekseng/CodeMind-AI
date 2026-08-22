@@ -41,6 +41,12 @@ axiosInstance.interceptors.response.use(
     const status = error.response?.status
     const data = error.response?.data
     console.warn(`[API Durumu ${status || "Network"}]`, data?.message || error.message)
+    if (status === 401 && typeof window !== "undefined") {
+      // Token expired or invalid
+      localStorage.removeItem("token")
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("user")
+    }
     return Promise.reject(error)
   }
 )

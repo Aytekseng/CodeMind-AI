@@ -209,16 +209,24 @@ function DashboardContent() {
   )
 }
 
+import { AuthGuard } from "@/components/auth/AuthGuard"
+
 export default function DashboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-        </div>
-      }
+    <AuthGuard
+      pageTitle="Güvenlik & Analiz Dashboard'u"
+      pageDescription="Şirketinize ait kod güvenlik metriklerini, zafiyet dağılımlarını ve detaylı AI analiz raporlarını görmek için lütfen giriş yapın."
     >
-      <DashboardContent />
-    </Suspense>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+          </div>
+        }
+      >
+        <DashboardContent />
+      </Suspense>
+    </AuthGuard>
   )
 }
+

@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using CodeMind.Domain.Interfaces;
@@ -7,9 +8,11 @@ using CodeMind.Domain.DTOs;
 
 namespace CodeMind.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class DocumentController : ControllerBase
+
 {
     private readonly IDocumentService _documentService;
 

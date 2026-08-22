@@ -12,11 +12,13 @@ import {
   ShieldCheck,
   Zap,
   Activity,
-  Cpu
+  Cpu,
+  Building2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { useSignalR } from "@/hooks/useSignalR"
+import { useAuth } from "@/hooks/useAuth"
 
 const navigation = [
   { name: "Yeni Kod Analizi", href: "/", icon: FileCode2, current: true },
@@ -28,6 +30,7 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { status: signalRStatus } = useSignalR()
+  const { user, isAuthenticated } = useAuth()
 
   const getSignalRBadgeVariant = () => {
     switch (signalRStatus) {
@@ -62,12 +65,35 @@ export function Sidebar() {
       {/* Navigation Links */}
       <div className="flex flex-1 flex-col justify-between overflow-y-auto px-4 py-6">
         <div className="space-y-1">
+          {isAuthenticated && user && (
+            <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                  <Building2 className="h-3 w-3" />
+                  Aktif Workspace
+                </p>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                  {user.role}
+                </span>
+              </div>
+              <p className="text-xs font-medium text-white truncate">
+                {user.tenantName || "Şirket Workspace"}
+              </p>
+              <p className="text-[10px] text-zinc-400 truncate">
+                {user.email}
+              </p>
+            </div>
+          )}
+
+
+
           <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
             Ana Menü
           </p>
           {navigation.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
+            const isRestricted = !isAuthenticated && item.href !== "/"
 
             return (
               <Link
@@ -86,14 +112,21 @@ export function Sidebar() {
                     isActive ? "text-cyan-400" : "text-zinc-400 group-hover:text-white"
                   )}
                 />
-                <span>{item.name}</span>
-                {isActive && (
-                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                <span className="flex-1">{item.name}</span>
+                {isRestricted ? (
+                  <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/5">
+                    🔒 Kilitli
+                  </span>
+                ) : (
+                  isActive && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                  )
                 )}
               </Link>
             )
           })}
         </div>
+
 
         {/* System Status Indicators Box */}
         <div className="space-y-3 pt-6 border-t border-white/10">
@@ -138,3 +171,4 @@ export function Sidebar() {
     </aside>
   )
 }
+

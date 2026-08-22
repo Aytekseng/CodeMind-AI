@@ -20,12 +20,14 @@ public class AuthService : IAuthService
     private readonly AppDbContext _context;
     private readonly IConfiguration _config;
     private readonly IMapper _mapper;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuthService(AppDbContext context, IConfiguration config, IMapper mapper)
+    public AuthService(AppDbContext context, IConfiguration config, IMapper mapper, ICurrentUserService currentUserService)
     {
         _context = context;
         _config = config;
         _mapper = mapper;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterRequestDto requestDto)
@@ -37,6 +39,10 @@ public class AuthService : IAuthService
 
         // 2. Yeni Şirket (Tenant) oluştur (AutoMapper ile)
         var newTenant = _mapper.Map<Tenant>(requestDto);
+        if (string.IsNullOrWhiteSpace(newTenant.Name))
+        {
+            newTenant.Name = $"{requestDto.FirstName} {requestDto.LastName} Workspace".Trim();
+        }
         _context.Tenants.Add(newTenant);
         await _context.SaveChangesAsync();
 
@@ -55,6 +61,10 @@ public class AuthService : IAuthService
         {
             Token = token,
             Email = newUser.Email,
+            FirstName = newUser.FirstName,
+            LastName = newUser.LastName,
+            Role = newUser.Role,
+            TenantName = newTenant.Name,
             UserId = newUser.Id,
             TenantId = newUser.TenantId
         };
@@ -64,8 +74,12 @@ public class AuthService : IAuthService
 
     public async Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto requestDto)
     {
-        // 1. Kullanıcıyı bul (Giriş anında henüz oturum açılmadığı için QueryFilter'ı yoksaymalıyız!)
-        var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == requestDto.Email);
+        // 1. Kullanıcıyı ve Şirketini bul (Giriş anında henüz oturum açılmadığı için QueryFilter'ı yoksaymalıyız!)
+        var user = await _context.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.Tenant)
+            .FirstOrDefaultAsync(u => u.Email == requestDto.Email);
+
         if (user == null)
             return ApiResponse<AuthResponseDto>.Fail("E-posta adresi veya şifre hatalı.");
 
@@ -80,11 +94,47 @@ public class AuthService : IAuthService
         {
             Token = token,
             Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            TenantName = user.Tenant?.Name ?? "Şirket",
             UserId = user.Id,
             TenantId = user.TenantId
         };
 
         return ApiResponse<AuthResponseDto>.Success(responseDto, "Giriş başarılı.");
+    }
+
+    public async Task<ApiResponse<AuthResponseDto>> GetCurrentUserProfileAsync()
+    {
+        var currentUserId = _currentUserService.UserId;
+        if (currentUserId == Guid.Empty)
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Geçerli bir kullanıcı oturumu bulunamadı.");
+        }
+
+        var user = await _context.Users
+            .Include(u => u.Tenant)
+            .FirstOrDefaultAsync(u => u.Id == currentUserId);
+
+        if (user == null)
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Kullanıcı profili bulunamadı.");
+        }
+
+        var responseDto = new AuthResponseDto
+        {
+            Token = string.Empty, // Profil sorgusunda yeni token üretmeye gerek yok
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            TenantName = user.Tenant?.Name ?? "Şirket",
+            UserId = user.Id,
+            TenantId = user.TenantId
+        };
+
+        return ApiResponse<AuthResponseDto>.Success(responseDto, "Profil bilgisi başarıyla getirildi.");
     }
 
     private string GenerateJwtToken(User user)
@@ -94,20 +144,29 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim("TenantId", user.TenantId.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.GivenName, user.FirstName ?? string.Empty),
+            new Claim(ClaimTypes.Surname, user.LastName ?? string.Empty),
+            new Claim(ClaimTypes.Role, user.Role ?? "Developer")
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["JwtSettings:Secret"]!));
+        var secret = _config["JwtSettings:Secret"];
+        if (string.IsNullOrEmpty(secret))
+        {
+            secret = Environment.GetEnvironmentVariable("JwtSettings__Secret") ?? "CodeMind_Super_Secret_Key_For_JWT_Auth_2026!+";
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _config["JwtSettings:Issuer"],
-            audience: _config["JwtSettings:Audience"],
+            issuer: _config["JwtSettings:Issuer"] ?? "CodeMindApi",
+            audience: _config["JwtSettings:Audience"] ?? "CodeMindClients",
             claims: claims,
-            expires: DateTime.Now.AddHours(2),
+            expires: DateTime.Now.AddHours(8),
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
+
