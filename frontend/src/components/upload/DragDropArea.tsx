@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { UploadCloud, AlertCircle, FileCode, Sparkles } from "lucide-react"
+import { UploadCloud, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
+import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
 import { uploadDocumentAsync } from "@/services/documentService"
+import { useSignalR } from "@/hooks/useSignalR"
 
 const ALLOWED_EXTENSIONS = [
   "cs", "py", "js", "jsx", "ts", "tsx", "go", "java", "cpp", "c", "sql", "json", "yml", "yaml", "html", "css"
@@ -19,13 +21,16 @@ export function DragDropArea() {
   const [isUploading, setIsUploading] = React.useState<boolean>(false)
   const [uploadStatus, setUploadStatus] = React.useState<"idle" | "success" | "error">("idle")
   const [serverMessage, setServerMessage] = React.useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = React.useState<boolean>(false)
 
+  const { latestResult } = useSignalR()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const validateAndSetFile = (file: File) => {
     setValidationError(null)
     setUploadStatus("idle")
     setServerMessage(null)
+    setIsAnalyzing(false)
 
     const extension = file.name.split(".").pop()?.toLowerCase() || ""
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
@@ -80,6 +85,7 @@ export function DragDropArea() {
     setValidationError(null)
     setUploadStatus("idle")
     setServerMessage(null)
+    setIsAnalyzing(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -91,6 +97,7 @@ export function DragDropArea() {
     setIsUploading(true)
     setUploadStatus("idle")
     setServerMessage(null)
+    setIsAnalyzing(true) // Switch to live terminal mode
 
     try {
       const response = await uploadDocumentAsync(selectedFile)
@@ -99,7 +106,7 @@ export function DragDropArea() {
         setServerMessage(response.message || "Dosya analize alındı!")
       } else {
         setUploadStatus("error")
-        setServerMessage(response.error || response.message || "Yükleme sırasında hata oluştu.")
+        setServerMessage(response.errors?.[0] || response.message || response.error || "Yükleme sırasında hata oluştu.")
       }
     } catch (err: any) {
       setUploadStatus("error")
@@ -111,8 +118,15 @@ export function DragDropArea() {
 
   return (
     <div className="space-y-4">
-      {/* File Preview Card (when a file is chosen) */}
-      {selectedFile ? (
+      {/* If analyzing / in terminal mode, show the live LoadingTerminal */}
+      {isAnalyzing && selectedFile ? (
+        <LoadingTerminal
+          fileName={selectedFile.name}
+          analysisResult={latestResult}
+          onReset={handleRemoveFile}
+        />
+      ) : selectedFile ? (
+        /* File Preview Card (when a file is chosen) */
         <FilePreviewCard
           file={selectedFile}
           isUploading={isUploading}
