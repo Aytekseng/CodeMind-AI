@@ -32,12 +32,6 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 3. **Temel Bileşenler (shadcn/ui):** `Button`, `Badge`, `Card`, `ThemeProvider` eklendi.
 4. **Navigasyon ve Yerleşim:** `Sidebar.tsx`, `Header.tsx`, `layout.tsx`, `page.tsx` geliştirildi.
 
-#### 🔗 Git Commit Geçmişi
-* `51fb7ed` - `docs: add frontend github workflow strategy`
-* `54afa1f` - `chore: initialize Next.js app with Tailwind CSS`
-* `359d1bc` - `chore: setup shadcn/ui and configure dark theme`
-* `fbcba04` - `feat: create basic layout and sidebar navigation`
-
 ---
 
 ### 🚀 Aşama 2: Sürükle-Bırak Dosya Yükleme (Drag & Drop UI + API Client)
@@ -50,13 +44,6 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 2. **Dosya Önizleme Kartı (`FilePreviewCard.tsx`):** Dil rozeti, formatlanmış boyut ve butonlar eklendi.
 3. **Merkezi API İstemcisi (`apiClient.ts`):** Otomatik JWT token interceptor'ı ve `upload` metodu ile Axios istemcisi kuruldu.
 4. **.NET CORS Entegrasyonu:** `Program.cs`'e `AllowFrontend` politikası ve doğru middleware sıralaması eklendi.
-
-#### 🔗 Git Commit Geçmişi
-* `eeafbc5` - `feat: build DragDropArea UI component with drag states`
-* `7e4d23d` - `feat: add file validation and FilePreviewCard component`
-* `6ad5487` - `feat: create modular documentService template and wire to home page`
-* `0118d78` - `feat(api): configure CORS policy and middleware order for frontend integration`
-* `453c2b0` - `feat(frontend): setup centralized apiClient with axios and finalize documentService`
 
 ---
 
@@ -78,13 +65,6 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 4. **Sidebar Canlı Durum Entegrasyonu:**
    * Sol menüdeki `SignalR Hub` rozeti gerçek WebSocket bağlantı durumuna göre dinamik renklendirildi.
 
-#### 🔗 Git Commit Geçmişi
-* `8acbd11` - `feat: setup @microsoft/signalr client and custom useSignalR hook`
-* `177675d` - `feat: add toast notification system for real-time analysis alerts`
-* `c7c4e8e` - `feat: build interactive LoadingTerminal with animated log stream`
-* `556fd06` - `fix: optimize Program.cs middleware pipeline and refine useSignalR connection`
-* `9110d75` - `fix: relax CORS policy and optimize SignalR reconnection loop`
-
 ---
 
 ### 🚀 Aşama 4: Dashboard, Canlı PostgreSQL Entegrasyonu & Etkileşimli İnceleme
@@ -93,14 +73,16 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **.NET Backend API Uç Noktaları:**
+1. **.NET Backend API Uç Noktaları & Veritabanı Uyumluluğu:**
    * `GET /api/Document/history`: PostgreSQL'deki tüm taranan dosyaları ve analiz raporlarını çeker.
    * `GET /api/Document/{id}/report`: Seçili dosyanın detaylı AI analiz raporunu getirir.
    * `GET /api/Document/stats`: Gerçek zafiyet dağılımlarını ve ortalama güvenlik skorunu hesaplar.
-   * `AppDbContext` Multi-tenant Row-Level Security global filtreleri JWT token olmadığında sorguları engellemeyecek şekilde dinamikleştirildi.
-2. **Frontend Canlı Veri Bağlantısı:**
-   * `documentService.ts` API istemcisine bağlandı.
-   * `AnalysisHistoryTable.tsx`: Gerçek API çağrıları, zafiyet filtreleri ve doğrudan sayfa içi hızlı inceleme modalı eklendi.
+   * PostgreSQL şemasıyla tam uyum sağlandı (tablolarda bulunmayan `CreatedAt` kolonu temizlendi).
+   * `AppDbContext` Multi-tenant Row-Level Security global filtreleri dinamikleştirildi.
+2. **Frontend Canlı Veri Bağlantısı & Terminal:**
+   * Dosya yükleme mekanizması saf ve sağlam XHR altyapısına geçirilerek `multipart boundary` ve Axios `console.error` sorunları tamamen çözüldü.
+   * `LoadingTerminal.tsx`: Sahte zamanlayıcılar (timer) kaldırılarak doğrudan gerçek HTTP yükleme yanıtlarına, Kafka fırlatma bildirimlerine ve SignalR Llama 3 analiz çıktılarına bağlandı.
+   * `AnalysisHistoryTable.tsx`: Canlı API çağrıları, zafiyet filtreleri ve doğrudan sayfa içi hızlı inceleme modalı eklendi.
    * `page.tsx` (/dashboard): Dinamik sayaçlar, gerçek zafiyet pasta grafiği ve Llama 3'ün ürettiği analiz çıktısını içeren `CodeDiffViewer` bağlandı.
 
 #### 🔗 Git Commit Geçmişi
@@ -108,6 +90,7 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * `d254d6a` - `feat: build CodeDiffViewer and interactive vulnerability line inspector`
 * `5d57762` - `feat: create dashboard layout with radar charts and history pages`
 * `78b16fe` - `feat: fix query filters in AppDbContext, add document history and stats endpoints, and connect frontend`
+* `407d997` - `fix: match PostgreSQL schema by removing non-existent CreatedAt column and stabilize multipart upload`
 
 #### 🧪 Doğrulama ve Test
 * Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
