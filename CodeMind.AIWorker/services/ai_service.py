@@ -72,7 +72,13 @@ def process_uploaded_file(event_data: FileUploadedEvent):
 
         if docs:
             context = "\n\n".join([doc.page_content for doc in docs])
-            llm = ChatOllama(model=settings.OLLAMA_LLM_MODEL,base_url=settings.OLLAMA_BASE_URL)
+            llm = ChatOllama(
+                model=settings.OLLAMA_LLM_MODEL,
+                base_url=settings.OLLAMA_BASE_URL,
+                num_ctx=settings.OLLAMA_NUM_CTX,
+                num_gpu=settings.OLLAMA_NUM_GPU,
+                temperature=settings.OLLAMA_TEMPERATURE
+            )
             from langchain_core.messages import SystemMessage, HumanMessage
             
             messages = [
