@@ -47,6 +47,14 @@ builder.Services.AddAutoMapper(cfg =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+        .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    });
+});
 
 
 var app = builder.Build();
@@ -60,6 +68,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 
 var summaries = new[]
 {
