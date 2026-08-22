@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { useSignalR } from "@/hooks/useSignalR"
 
 const navigation = [
   { name: "Yeni Kod Analizi", href: "/", icon: FileCode2, current: true },
@@ -28,6 +29,19 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { status: signalRStatus } = useSignalR()
+
+  const getSignalRBadgeVariant = () => {
+    switch (signalRStatus) {
+      case "Connected":
+        return "success"
+      case "Connecting":
+      case "Reconnecting":
+        return "warning"
+      default:
+        return "destructive"
+    }
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10 bg-[#090a0f]/95 backdrop-blur-xl">
@@ -109,8 +123,8 @@ export function Sidebar() {
                 <Zap className="h-3.5 w-3.5 text-amber-400" />
                 SignalR Hub
               </span>
-              <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                Connected
+              <Badge variant={getSignalRBadgeVariant()} className="text-[10px] px-1.5 py-0">
+                {signalRStatus}
               </Badge>
             </div>
           </div>
