@@ -26,22 +26,10 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **Next.js 14+ Kurulumu:**
-   * `frontend/` klasörü altında TypeScript, App Router ve Tailwind CSS altyapısı sıfırdan oluşturuldu.
-2. **UI & Kütüphane Yapılandırması:**
-   * `shadcn/ui` altyapısı kuruldu (`components.json`, `src/lib/utils.ts`).
-   * `next-themes`, `lucide-react`, `clsx`, `tailwind-merge` ve `class-variance-authority` paketleri yüklendi.
-   * `src/app/globals.css` içinde koyu tema (zinc/slate arka plan, neon cyan ve emerald vurguları, cam efekti paneller) tasarlandı.
-3. **Temel Bileşenler (shadcn/ui):**
-   * `Button`: Siber/Neon varyantı ile birlikte hazırlandı.
-   * `Badge`: Online/Offline ve Kritiklik durum rozetleri eklendi.
-   * `Card`: Glassmorphic (buzlu cam) efektli kart yapısı kodlandı.
-   * `ThemeProvider`: Koyu tema varsayılan olacak şekilde entegre edildi.
-4. **Navigasyon ve Yerleşim (Layout):**
-   * `Sidebar.tsx`: Logo, ana menü bağlantıları ve canlı sistem durumu kutucukları (AI Worker, Kafka Broker, SignalR Hub online rozetleri) eklendi.
-   * `Header.tsx`: Başlık alanı, Llama 3 8B RAG aktif rozeti ve GitHub butonu eklendi.
-   * `layout.tsx`: Sidebar ve Header genel sayfa düzenine oturtuldu.
-   * `page.tsx`: Modern Hero karşılama alanı, Aşama 2 için dosya yükleme yer tutucusu ve özellik kartları oluşturuldu.
+1. **Next.js 14+ Kurulumu:** TypeScript, App Router ve Tailwind CSS altyapısı kuruldu.
+2. **UI & Kütüphane Yapılandırması:** `shadcn/ui` altyapısı kuruldu (`next-themes`, `lucide-react`, `clsx`, `tailwind-merge`).
+3. **Temel Bileşenler (shadcn/ui):** `Button`, `Badge`, `Card`, `ThemeProvider` eklendi.
+4. **Navigasyon ve Yerleşim:** `Sidebar.tsx`, `Header.tsx`, `layout.tsx`, `page.tsx` geliştirildi.
 
 #### 🔗 Git Commit Geçmişi
 * `51fb7ed` - `docs: add frontend github workflow strategy`
@@ -51,57 +39,68 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 
 ---
 
-### 🚀 Aşama 2: Sürükle-Bırak Dosya Yükleme (Drag & Drop UI + Modüler Servis)
+### 🚀 Aşama 2: Sürükle-Bırak Dosya Yükleme (Drag & Drop UI + API Client)
 * **Tarih:** 22 Ağustos 2026
 * **Çalışılan Dal (Branch):** `feature/frontend-upload` ➔ `main`
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **Sürükle-Bırak Bileşeni (`DragDropArea.tsx`):**
-   * Sürükleme anında dinamik neon cyan ışıması ve ölçekleme animasyonları.
-   * Tıklayarak dosya seçme ve sürükle-bırak desteği.
-   * Desteklenen kod formatları (`.cs`, `.py`, `.js`, `.ts`, `.go`, `.java`, `.cpp`, `.sql` vb.) ve maksimum 10MB boyut sınırı doğrulaması.
-   * Geçersiz dosya formatı veya boyutunda anlık kırmızı uyarı rozeti.
-2. **Dosya Önizleme Kartı (`FilePreviewCard.tsx`):**
-   * Seçilen dosyanın uzantısına göre otomatik dil rozeti (C#, Python, JavaScript vb. renkli badge).
-   * Dosya adı ve formatlanmış boyut (KB/MB) bilgisi.
-   * "Kaldır/İptal Et" butonu ve loading animasyonlu "Analizi Başlat" butonu.
-   * Başarılı (Kuyruğa alındı) ve Hatalı durum bildirimleri.
-3. **Modüler Entegrasyon Servis Taslağı (`documentService.ts`):**
-   * Kullanıcının backend entegrasyonunu rahatça yazabilmesi için TypeScript tipleri (`ApiResponse<T>`, `UploadResultData`) ve FormData şablonu oluşturuldu.
-4. **Ana Sayfa Entegrasyonu (`page.tsx`):**
-   * Statik yer tutucu kaldırılarak yeni etkileşimli `DragDropArea` bileşeni bağlandı.
-
-#### 📦 Oluşturulan ve Güncellenen Dosyalar
-* `frontend/src/components/upload/DragDropArea.tsx`
-* `frontend/src/components/upload/FilePreviewCard.tsx`
-* `frontend/src/services/documentService.ts`
-* `frontend/src/app/page.tsx`
+1. **Sürükle-Bırak Bileşeni (`DragDropArea.tsx`):** Dinamik neon cyan ışıma efektleri, kod formatı (.cs, .py vb.) ve 10MB boyut doğrulamaları eklendi.
+2. **Dosya Önizleme Kartı (`FilePreviewCard.tsx`):** Dil rozeti, formatlanmış boyut ve butonlar eklendi.
+3. **Merkezi API İstemcisi (`apiClient.ts`):** Otomatik JWT token interceptor'ı ve `upload` metodu ile Axios istemcisi kuruldu.
+4. **.NET CORS Entegrasyonu:** `Program.cs`'e `AllowFrontend` politikası ve doğru middleware sıralaması eklendi.
 
 #### 🔗 Git Commit Geçmişi
 * `eeafbc5` - `feat: build DragDropArea UI component with drag states`
 * `7e4d23d` - `feat: add file validation and FilePreviewCard component`
 * `6ad5487` - `feat: create modular documentService template and wire to home page`
-
-#### 🧪 Doğrulama ve Test
-* `npm run build` komutu çalıştırıldı; Next.js 14 App Router ve TypeScript derlemesi **0 hata** ile tamamlandı.
-* Değişiklikler `main` dalına merge edilip GitHub'a push edildi.
+* `0118d78` - `feat(api): configure CORS policy and middleware order for frontend integration`
+* `453c2b0` - `feat(frontend): setup centralized apiClient with axios and finalize documentService`
 
 ---
 
-### ⏳ Aşama 3: Canlı AI Analiz Terminali & SignalR Entegrasyonu
-* **Çalışılacak Dal (Branch):** `feature/frontend-realtime`
-* **Durum:** 🕒 Sıradaki Aşama
-* **Planlanan İşlemler:**
-  * `LoadingTerminal.tsx` daktilo/hacker efektli analiz bekleme terminali.
-  * `useSignalR.ts` gerçek zamanlı WebSocket hook'u.
-  * AI analizi tamamlandığında açılan `Toast` bildirimleri.
+### 🚀 Aşama 3: Canlı AI Analiz Terminali & SignalR Gerçek Zamanlı Bildirimleri
+* **Tarih:** 22 Ağustos 2026
+* **Çalışılan Dal (Branch):** `feature/frontend-realtime` ➔ `main`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **SignalR İstemcisi & Custom Hook (`useSignalR.ts`):**
+   * `@microsoft/signalr` entegre edildi.
+   * `http://localhost:5083/analysis-hub` uç noktasına otomatik yeniden bağlanmalı (auto-reconnect) WebSockets bağlantısı kuruldu.
+   * `ReceiveAnalysisResult(fileId, severity, aiSuggestion)` olayı dinlendi ve durum yönetimi sağlandı.
+2. **Canlı AI Analiz Terminali (`LoadingTerminal.tsx`):**
+   * Dosya analize yollandığında açılan, siyah arka planlı ve renk kodlu (MinIO, Kafka, Worker, PgVector, Llama3) canlı log akışı tasarlandı.
+   * Gerçek SignalR sonucu geldiğinde tamamlanan, kritiklik seviyesini gösteren ve rapor detayına yönlendiren aksiyon barı eklendi.
+3. **Toast Bildirim Sistemi (`sonner`):**
+   * `layout.tsx` içerisine karanlık tema uyumlu Toaster bağlandı.
+   * Analiz bittiğinde ekranın sağ alt köşesinde açılan ve kritiklik seviyesine göre zenginleştirilmiş bildirimler kodlandı.
+4. **Sidebar Canlı Durum Entegrasyonu:**
+   * Sol menüdeki `SignalR Hub` rozeti gerçek WebSocket bağlantı durumuna (Connected / Reconnecting / Disconnected) göre dinamik renklendirildi.
+
+#### 📦 Oluşturulan ve Güncellenen Dosyalar
+* `frontend/src/hooks/useSignalR.ts`
+* `frontend/src/components/analysis/LoadingTerminal.tsx`
+* `frontend/src/components/layout/Sidebar.tsx`
+* `frontend/src/components/upload/DragDropArea.tsx`
+* `frontend/src/app/layout.tsx`
+* `frontend/.env.local`
+
+#### 🔗 Git Commit Geçmişi
+* `8acbd11` - `feat: setup @microsoft/signalr client and custom useSignalR hook`
+* `177675d` - `feat: add toast notification system for real-time analysis alerts`
+* `c7c4e8e` - `feat: build interactive LoadingTerminal with animated log stream`
+
+#### 🧪 Doğrulama ve Test
+* `npm run build` komutu çalıştırıldı; Next.js 14 App Router ve SignalR WebSocket derlemesi **0 hata** ile başarıyla doğrulandı.
+* Değişiklikler `main` dalına merge edilip GitHub'a push edildi.
 
 ---
 
 ### ⏳ Aşama 4: Dashboard ve Etkileşimli Kod İnceleme
 * **Çalışılacak Dal (Branch):** `feature/frontend-dashboard`
-* **Durum:** 🕒 Bekliyor
+* **Durum:** 🕒 Sıradaki Aşama
 * **Planlanan İşlemler:**
   * `Recharts` ile güvenlik, performans ve okunabilirlik analiz skor grafikleri.
   * `react-syntax-highlighter` ile kod satırlarında zafiyet vurgulama (diff / error highlight).
+  * Geçmiş analiz raporlarının listelendiği özet tablo ekranı.
