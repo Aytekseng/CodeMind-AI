@@ -59,6 +59,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// CORS en başta olmalıdır (Tüm istekler ve SignalR Negotiate için)
+app.UseCors("AllowFrontend");
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -66,9 +69,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
+else
+{
+    app.UseHttpsRedirection();
+}
 
 var summaries = new[]
 {

@@ -21,8 +21,9 @@ export function useSignalR() {
   const connectionRef = useRef<signalR.HubConnection | null>(null)
 
   const showResultToast = useCallback((result: AnalysisResultEvent) => {
-    const isCritical = result.severity?.toLowerCase().includes("kritik") || result.severity?.toLowerCase().includes("critical")
-    const isHigh = result.severity?.toLowerCase().includes("yüksek") || result.severity?.toLowerCase().includes("high")
+    const isCritical =
+      result.severity?.toLowerCase().includes("kritik") ||
+      result.severity?.toLowerCase().includes("critical")
 
     toast(isCritical ? "🚨 Kritik Güvenlik Açığı Tespiti!" : "✨ AI Analizi Tamamlandı", {
       description: `Kritiklik: ${result.severity || "Belirtilmemiş"}\n${result.aiSuggestion?.slice(0, 100)}...`,
@@ -40,11 +41,10 @@ export function useSignalR() {
     // Hub bağlantısını oluştur
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL, {
-        skipNegotiation: false,
-        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+        withCredentials: true,
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Information)
+      .configureLogging(signalR.LogLevel.Warning)
       .build()
 
     connectionRef.current = connection
@@ -63,18 +63,18 @@ export function useSignalR() {
     })
 
     // Bağlantı durum değişimleri
-    connection.onreconnecting(() => {
-      console.warn("[SignalR] Yeniden bağlanıyor...")
+    connection.onreconnecting((error) => {
+      console.warn("[SignalR] Yeniden bağlanıyor...", error?.message)
       setStatus("Reconnecting")
     })
 
-    connection.onreconnected(() => {
-      console.log("[SignalR] Yeniden bağlandı!")
+    connection.onreconnected((connectionId) => {
+      console.log("[SignalR] Yeniden bağlandı! Connection ID:", connectionId)
       setStatus("Connected")
     })
 
-    connection.onclose(() => {
-      console.warn("[SignalR] Bağlantı kapandı.")
+    connection.onclose((error) => {
+      console.warn("[SignalR] Bağlantı kapandı.", error?.message)
       setStatus("Disconnected")
     })
 
@@ -84,8 +84,8 @@ export function useSignalR() {
         await connection.start()
         console.log("[SignalR] AnalysisHub bağlantısı başarıyla kuruldu:", HUB_URL)
         setStatus("Connected")
-      } catch (err) {
-        console.error("[SignalR] Bağlantı başlatılamadı:", err)
+      } catch (err: any) {
+        console.warn("[SignalR] Bağlantı henüz kurulamadı (Backend yeniden başlatılıyor olabilir):", err?.message || err)
         setStatus("Disconnected")
       }
     }
@@ -94,7 +94,7 @@ export function useSignalR() {
 
     return () => {
       if (connection) {
-        connection.stop()
+        connection.stop().catch(() => {})
       }
     }
   }, [showResultToast])
