@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
+import { Toaster } from "sonner"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
@@ -39,6 +40,8 @@ export default function RootLayout({
               </main>
             </div>
           </div>
+          {/* Sonner Global Toast Notifications */}
+          <Toaster theme="dark" position="bottom-right" richColors />
         </ThemeProvider>
       </body>
     </html>
