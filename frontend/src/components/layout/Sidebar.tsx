@@ -11,7 +11,6 @@ import {
   Settings,
   ShieldCheck,
   Zap,
-  Terminal,
   Activity,
   Cpu
 } from "lucide-react"
@@ -23,7 +22,6 @@ const navigation = [
   { name: "Yeni Kod Analizi", href: "/", icon: FileCode2, current: true },
   { name: "Dashboard & Raporlar", href: "/dashboard", icon: LayoutDashboard },
   { name: "Geçmiş Analizler", href: "/history", icon: History },
-  { name: "Canlı AI Terminali", href: "/terminal", icon: Terminal },
   { name: "Ayarlar", href: "/settings", icon: Settings },
 ]
 

@@ -248,7 +248,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                           if (onSelectRecord) {
                             onSelectRecord(item)
                           } else {
-                            setActiveModalItem(item)
+                            window.location.href = `/dashboard?docId=${item.id}`
                           }
                         }}
                         className="h-7 text-[11px] gap-1 px-2.5 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"

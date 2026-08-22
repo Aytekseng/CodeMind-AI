@@ -101,7 +101,7 @@ export function DragDropArea() {
     setUploadStatus("idle")
     setServerMessage(null)
     setUploadedDocumentId(null)
-    setIsAnalyzing(true) // Switch to live terminal mode
+    setIsAnalyzing(true) // Switch to inline live terminal directly on this page
 
     try {
       console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)
@@ -122,7 +122,7 @@ export function DragDropArea() {
     } catch (err: any) {
       console.error("[DragDropArea] Yükleme hatası:", err)
       setUploadStatus("error")
-      setServerMessage(err?.response?.data?.message || err?.message || "Sunucu bağlantı hatası.")
+      setServerMessage(err?.message || "Sunucu bağlantı hatası.")
     } finally {
       setIsUploading(false)
     }
@@ -130,7 +130,7 @@ export function DragDropArea() {
 
   return (
     <div className="space-y-4">
-      {/* If analyzing / in terminal mode, show the live LoadingTerminal */}
+      {/* If analyzing / in terminal mode, show the live LoadingTerminal inline right here */}
       {isAnalyzing && selectedFile ? (
         <LoadingTerminal
           fileName={selectedFile.name}

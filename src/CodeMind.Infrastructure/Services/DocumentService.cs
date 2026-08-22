@@ -139,6 +139,11 @@ public class DocumentService : IDocumentService
             }
 
             var latestReport = document.AnalysisReports.FirstOrDefault();
+            string originalFileContent = await _minIOService.GetFileTextAsync(document.StorageUrl);
+            if (string.IsNullOrWhiteSpace(originalFileContent))
+            {
+                originalFileContent = latestReport?.OriginalCode ?? "// Analiz edilen dosya: " + document.FileName;
+            }
 
             var reportDetail = new DocumentReportDetailDto
             {
@@ -150,7 +155,7 @@ public class DocumentService : IDocumentService
                 Severity = latestReport?.Severity ?? "Medium",
                 Score = CalculateScoreFromSeverity(latestReport?.Severity),
                 AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz çıktısı bekleniyor...",
-                OriginalCode = latestReport?.OriginalCode ?? "// Analiz edilen dosya: " + document.FileName,
+                OriginalCode = originalFileContent,
                 VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
                     ? new List<int> { latestReport.LineNumber } 
                     : new List<int>()
