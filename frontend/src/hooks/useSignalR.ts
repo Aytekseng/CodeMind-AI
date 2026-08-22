@@ -38,18 +38,27 @@ export function useSignalR() {
   }, [])
 
   useEffect(() => {
+    let isMounted = true
+
     // Hub bağlantısını oluştur
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL, {
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
         withCredentials: true,
       })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning)
+      .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: (retryContext) => {
+          if (retryContext.previousRetryCount < 5) return 2000
+          if (retryContext.previousRetryCount < 10) return 5000
+          return 10000
+        },
+      })
+      .configureLogging(signalR.LogLevel.None) // Konsolu temiz tutmak için
       .build()
 
     connectionRef.current = connection
 
-    // Olay Dinleyicileri
+    // Olay Dinleyicisi
     connection.on("ReceiveAnalysisResult", (fileId: string, severity: string, aiSuggestion: string) => {
       console.log("[SignalR] ReceiveAnalysisResult alındı:", { fileId, severity, aiSuggestion })
       const event: AnalysisResultEvent = {
@@ -58,41 +67,48 @@ export function useSignalR() {
         aiSuggestion,
         timestamp: new Date(),
       }
-      setLatestResult(event)
-      showResultToast(event)
+      if (isMounted) {
+        setLatestResult(event)
+        showResultToast(event)
+      }
     })
 
-    // Bağlantı durum değişimleri
-    connection.onreconnecting((error) => {
-      console.warn("[SignalR] Yeniden bağlanıyor...", error?.message)
-      setStatus("Reconnecting")
+    // Bağlantı durumları
+    connection.onreconnecting(() => {
+      if (isMounted) setStatus("Reconnecting")
     })
 
-    connection.onreconnected((connectionId) => {
-      console.log("[SignalR] Yeniden bağlandı! Connection ID:", connectionId)
-      setStatus("Connected")
+    connection.onreconnected(() => {
+      console.log("[SignalR] Yeniden bağlandı!")
+      if (isMounted) setStatus("Connected")
     })
 
-    connection.onclose((error) => {
-      console.warn("[SignalR] Bağlantı kapandı.", error?.message)
-      setStatus("Disconnected")
+    connection.onclose(() => {
+      if (isMounted) setStatus("Disconnected")
     })
 
-    // Bağlantıyı başlat
-    async function startConnection() {
+    // Başlat
+    async function start() {
+      if (connection.state !== signalR.HubConnectionState.Disconnected) return
       try {
         await connection.start()
-        console.log("[SignalR] AnalysisHub bağlantısı başarıyla kuruldu:", HUB_URL)
-        setStatus("Connected")
+        console.log("[SignalR] AnalysisHub bağlantısı aktif: " + HUB_URL)
+        if (isMounted) setStatus("Connected")
       } catch (err: any) {
-        console.warn("[SignalR] Bağlantı henüz kurulamadı (Backend yeniden başlatılıyor olabilir):", err?.message || err)
-        setStatus("Disconnected")
+        if (isMounted) setStatus("Disconnected")
+        // Arka plan henüz başlamadıysa 3 saniye sonra otomatik tekrar dene
+        setTimeout(() => {
+          if (isMounted && connection.state === signalR.HubConnectionState.Disconnected) {
+            start()
+          }
+        }, 3000)
       }
     }
 
-    startConnection()
+    start()
 
     return () => {
+      isMounted = false
       if (connection) {
         connection.stop().catch(() => {})
       }
