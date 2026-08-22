@@ -1,11 +1,15 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using CodeMind.Domain.DTOs;
 
 namespace CodeMind.Domain.Interfaces;
 
 public interface IDocumentService
 {
-    // Clean Architecture kuralı gereği Domain katmanına Web kütüphanesi (IFormFile) bulaştırılmaz.
-    // Bu yüzden Stream ve string parametreleri kullanıyoruz.
     Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType);
+    Task<ApiResponse<List<DocumentHistoryDto>>> GetDocumentHistoryAsync();
+    Task<ApiResponse<DocumentReportDetailDto>> GetDocumentReportAsync(Guid id);
+    Task<ApiResponse<DashboardStatsDto>> GetDashboardStatsAsync();
 }

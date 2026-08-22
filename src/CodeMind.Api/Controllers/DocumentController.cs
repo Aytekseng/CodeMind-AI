@@ -1,6 +1,11 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using CodeMind.Domain.Interfaces;
 using CodeMind.Domain.DTOs;
+
+namespace CodeMind.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -25,6 +30,30 @@ public class DocumentController : ControllerBase
         if (!response.IsSuccess)
             return BadRequest(response);
 
+        return Ok(response);
+    }
+
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory()
+    {
+        var response = await _documentService.GetDocumentHistoryAsync();
+        return Ok(response);
+    }
+
+    [HttpGet("{id:guid}/report")]
+    public async Task<IActionResult> GetReport(Guid id)
+    {
+        var response = await _documentService.GetDocumentReportAsync(id);
+        if (!response.IsSuccess)
+            return NotFound(response);
+
+        return Ok(response);
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats()
+    {
+        var response = await _documentService.GetDashboardStatsAsync();
         return Ok(response);
     }
 }

@@ -1,41 +1,83 @@
-import api from "@/services/apiClient"
+import { api, ApiResponse } from "@/services/apiClient"
 
-/**
- * CodeMind AI - Document Service
- * 
- * C# Web API (DocumentController) ile iletişim kuran servis.
- */
+export type { ApiResponse }
 
-export interface ApiResponse<T = any> {
-  isSuccess: boolean
-  message?: string
-  error?: string | null
-  errors?: string[] | null
-  data?: T
+export interface DocumentHistoryItem {
+  id: string
+  fileName: string
+  language: string
+  createdAt: string
+  status: string
+  severity: string
+  score: number
+  findingsCount: number
+  latestAiSuggestion?: string
 }
 
-export interface UploadResultData {
-  documentId?: string
-  objectKey?: string
+export interface DocumentReportDetail {
+  documentId: string
+  fileName: string
+  language: string
+  status: string
+  createdAt: string
+  severity: string
+  score: number
+  aiSuggestion: string
+  originalCode: string
+  vulnerableLines: number[]
+}
+
+export interface DashboardStats {
+  totalDocuments: number
+  averageScore: number
+  criticalCount: number
+  highCount: number
+  mediumCount: number
+  lowCount: number
+  recentDocuments: DocumentHistoryItem[]
+}
+
+export interface UploadResponseData {
+  objectKey: string
+  documentId: string
 }
 
 /**
- * Tekil bir kod dosyasını C# Web API'ye (POST /api/Document/upload) gönderir.
- * 
- * @param file Kullanıcının seçtiği/sürüklediği dosya
- * @param onProgress Yükleme yüzdesi takip fonksiyonu (isteğe bağlı)
- * @returns ApiResponse formatında sunucu yanıtı
+ * Dosya yükleme servisi (POST /api/Document/upload)
  */
 export async function uploadDocumentAsync(
   file: File,
   onProgress?: (percent: number) => void
-): Promise<ApiResponse<UploadResultData>> {
+): Promise<ApiResponse<UploadResponseData>> {
   const formData = new FormData()
   formData.append("file", file)
 
-  return await api.upload<ApiResponse<UploadResultData>>(
+  return await api.upload<ApiResponse<UploadResponseData>>(
     "/api/Document/upload",
     formData,
     onProgress
   )
+}
+
+/**
+ * Geçmiş analiz edilen dosyaları getirir (GET /api/Document/history)
+ */
+export async function getHistoryAsync(): Promise<ApiResponse<DocumentHistoryItem[]>> {
+  return await api.get<ApiResponse<DocumentHistoryItem[]>>("/api/Document/history")
+}
+
+/**
+ * Belirli bir dokümanın detaylı analiz raporunu getirir (GET /api/Document/{id}/report)
+ */
+export async function getDocumentReportAsync(
+  id: string
+): Promise<ApiResponse<DocumentReportDetail>> {
+  return await api.get<ApiResponse<DocumentReportDetail>>(`/api/Document/${id}/report`)
+}
+
+/**
+ * Dashboard özet istatistiklerini getirir (GET /api/Document/stats)
+ */
+export async function getDashboardStatsAsync(): Promise<ApiResponse<DashboardStats>> {
+  return await api.get<ApiResponse<DashboardStats>>("/api/Document/stats")
 }

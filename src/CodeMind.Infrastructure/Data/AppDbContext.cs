@@ -44,18 +44,10 @@ public class AppDbContext : DbContext
             .HasConversion<string>();
 
         // Multi-tenancy (Çok Kiracılılık) için Row-Level Security (RLS) - Global Sorgu Filtresi
-        // TODO: Auth servisi yazıldığında buraya anlık kullanıcının TenantId'si enjekte edilecek.
-        Guid currentTenantId = _currentUserService.TenantId;
-
-        // Tüm kullanıcı sorgularında sadece ilgili şirketin kullanıcıları filtrelenecek
-        modelBuilder.Entity<User>().HasQueryFilter(u => u.TenantId == currentTenantId);
-        
-        // Tüm proje sorgularında sadece ilgili şirketin projeleri filtrelenecek
-        modelBuilder.Entity<Project>().HasQueryFilter(p => p.TenantId == currentTenantId);
-
-        // Alt tablolarda (Document, AnalysisReport) uyarı (10622) almamak için 
-        // onların da üst tabloları (Project) üzerinden filtrelenmesini sağlıyoruz.
-        modelBuilder.Entity<Document>().HasQueryFilter(d => d.Project.TenantId == currentTenantId);
-        modelBuilder.Entity<AnalysisReport>().HasQueryFilter(a => a.Document.Project.TenantId == currentTenantId);
+        // Auth token'ı yoksa (TenantId == Guid.Empty) filtre devreye girmez; token varsa ilgili şirketi filtreler.
+        modelBuilder.Entity<User>().HasQueryFilter(u => _currentUserService.TenantId == Guid.Empty || u.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Project>().HasQueryFilter(p => _currentUserService.TenantId == Guid.Empty || p.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Document>().HasQueryFilter(d => _currentUserService.TenantId == Guid.Empty || d.Project.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<AnalysisReport>().HasQueryFilter(a => _currentUserService.TenantId == Guid.Empty || a.Document.Project.TenantId == _currentUserService.TenantId);
     }
 }
