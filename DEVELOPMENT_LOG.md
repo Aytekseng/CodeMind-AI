@@ -13,6 +13,7 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * **Python AI Worker:** LangChain ve Ollama (Llama 3 8B) ile RAG (Retrieval-Augmented Generation) tabanlı kod ve güvenlik analizi geliştirildi.
 * **Apache Kafka & Zookeeper:** Olay güdümlü (Event-Driven) asenkron kuyruk yapısı kuruldu.
 * **SignalR:** Analiz bittiğinde istemciye anlık bildirim fırlatacak WebSockets altyapısı hazırlandı.
+* **Evrensel Donanım Hızlandırma:** NVIDIA CUDA ve AMD ROCm/Vulkan gibi harici GPU'ların otomatik tespiti ve VRAM optimizasyonu sağlandı (`e003c0d`).
 
 ---
 
@@ -90,6 +91,9 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * `8acbd11` - `feat: setup @microsoft/signalr client and custom useSignalR hook`
 * `177675d` - `feat: add toast notification system for real-time analysis alerts`
 * `c7c4e8e` - `feat: build interactive LoadingTerminal with animated log stream`
+* `556fd06` - `fix: optimize Program.cs middleware pipeline and refine useSignalR connection`
+* `9110d75` - `fix: relax CORS policy and optimize SignalR reconnection loop`
+* `e003c0d` - `perf(ai-worker): add hardware-agnostic GPU acceleration and memory optimization`
 
 #### 🧪 Doğrulama ve Test
 * `npm run build` komutu çalıştırıldı; Next.js 14 App Router ve SignalR WebSocket derlemesi **0 hata** ile başarıyla doğrulandı.
