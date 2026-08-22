@@ -31,19 +31,27 @@ public class DocumentService : IDocumentService
             // 1. MinIO'ya yükle
             string savedObjectName = await _minIOService.UploadFileAsync(fileStream, fileName, contentType);
 
-            // 2. Veritabanına ilişkili sahte kayıtları (Foreign Key için) atıyoruz
+            // 2. Veritabanına Tenant & Project kaydını garantile
             var tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
             if (tenant == null)
             {
-                tenant = new Tenant { Id = Guid.NewGuid(), Name = "Test Şirketi" };
+                tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
                 _dbContext.Tenants.Add(tenant);
+                await _dbContext.SaveChangesAsync();
             }
 
             var project = await _dbContext.Projects.IgnoreQueryFilters().FirstOrDefaultAsync();
             if (project == null)
             {
-                project = new Project { Id = Guid.NewGuid(), Name = "Test Projesi", TenantId = tenant.Id, Language = GetLanguageFromFileName(fileName) };
+                project = new Project 
+                { 
+                    Id = Guid.NewGuid(), 
+                    Name = "Varsayılan Kod Tabanı", 
+                    TenantId = tenant.Id, 
+                    Language = GetLanguageFromFileName(fileName) 
+                };
                 _dbContext.Projects.Add(project);
+                await _dbContext.SaveChangesAsync();
             }
 
             var document = new Document 
@@ -51,8 +59,7 @@ public class DocumentService : IDocumentService
                 Id = Guid.NewGuid(), 
                 ProjectId = project.Id, 
                 FileName = fileName, 
-                StorageUrl = savedObjectName,
-                CreatedAt = DateTime.UtcNow
+                StorageUrl = savedObjectName
             };
             
             _dbContext.Documents.Add(document);
@@ -67,13 +74,15 @@ public class DocumentService : IDocumentService
             };
 
             await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
+            Console.WriteLine($"[DocumentService] Dosya MinIO'ya yüklendi ve Kafka kuyruğuna atıldı. ID: {document.Id}");
 
             // 4. Standart ApiResponse formatında dön
             var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
-            return ApiResponse<object>.Success(responseData, "Dosya yüklendi ve analize gönderildi.");
+            return ApiResponse<object>.Success(responseData, "Dosya başarıyla yüklendi ve kuyruğa aktarıldı.");
         }
         catch (Exception ex)
         {
+            Console.Error.WriteLine($"[DocumentService Hata] {ex.Message} -> {ex.StackTrace}");
             return ApiResponse<object>.Fail(ex.Message, "Dosya yüklenirken veya kuyruğa atılırken bir hata oluştu.");
         }
     }
@@ -85,13 +94,12 @@ public class DocumentService : IDocumentService
             var documents = await _dbContext.Documents
                 .IgnoreQueryFilters()
                 .Include(d => d.AnalysisReports)
-                .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
 
             var historyList = documents.Select(d =>
             {
-                var latestReport = d.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
-                string severity = latestReport?.Severity ?? "Bekliyor";
+                var latestReport = d.AnalysisReports.FirstOrDefault();
+                string severity = latestReport?.Severity ?? "İnceleniyor";
                 int score = CalculateScoreFromSeverity(severity);
 
                 return new DocumentHistoryDto
@@ -99,7 +107,7 @@ public class DocumentService : IDocumentService
                     Id = d.Id,
                     FileName = d.FileName,
                     Language = GetLanguageFromFileName(d.FileName),
-                    CreatedAt = d.CreatedAt,
+                    CreatedAt = DateTime.UtcNow,
                     Status = d.Status.ToString(),
                     Severity = severity,
                     Score = score,
@@ -130,7 +138,7 @@ public class DocumentService : IDocumentService
                 return ApiResponse<DocumentReportDetailDto>.Fail("Doküman bulunamadı.");
             }
 
-            var latestReport = document.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+            var latestReport = document.AnalysisReports.FirstOrDefault();
 
             var reportDetail = new DocumentReportDetailDto
             {
@@ -138,10 +146,10 @@ public class DocumentService : IDocumentService
                 FileName = document.FileName,
                 Language = GetLanguageFromFileName(document.FileName).ToLowerInvariant(),
                 Status = document.Status.ToString(),
-                CreatedAt = document.CreatedAt,
+                CreatedAt = DateTime.UtcNow,
                 Severity = latestReport?.Severity ?? "Medium",
                 Score = CalculateScoreFromSeverity(latestReport?.Severity),
-                AiSuggestion = latestReport?.AiSuggestion ?? "Henüz analiz tamamlanmadı.",
+                AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz çıktısı bekleniyor...",
                 OriginalCode = latestReport?.OriginalCode ?? "// Analiz edilen dosya: " + document.FileName,
                 VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
                     ? new List<int> { latestReport.LineNumber } 
@@ -163,7 +171,6 @@ public class DocumentService : IDocumentService
             var documents = await _dbContext.Documents
                 .IgnoreQueryFilters()
                 .Include(d => d.AnalysisReports)
-                .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
 
             var stats = new DashboardStatsDto
@@ -191,9 +198,9 @@ public class DocumentService : IDocumentService
                     Id = d.Id,
                     FileName = d.FileName,
                     Language = GetLanguageFromFileName(d.FileName),
-                    CreatedAt = d.CreatedAt,
+                    CreatedAt = DateTime.UtcNow,
                     Status = d.Status.ToString(),
-                    Severity = r?.Severity ?? "İşleniyor",
+                    Severity = r?.Severity ?? "İnceleniyor",
                     Score = CalculateScoreFromSeverity(r?.Severity),
                     FindingsCount = d.AnalysisReports.Count,
                     LatestAiSuggestion = r?.AiSuggestion

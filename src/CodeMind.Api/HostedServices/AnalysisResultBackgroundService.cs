@@ -49,8 +49,7 @@ public class AnalysisResultBackgroundService : BackgroundService
                     Id = Guid.NewGuid(),
                     DocumentId = eventData.FileId,
                     Severity = eventData.Severity ?? "Medium",
-                    AiSuggestion = eventData.AiSuggestion ?? "Analiz tamamlandı.",
-                    CreatedAt = DateTime.UtcNow
+                    AiSuggestion = eventData.AiSuggestion ?? "Analiz tamamlandı."
                 };
                 
                 dbContext.AnalysisReports.Add(report);

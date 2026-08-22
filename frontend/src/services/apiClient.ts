@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios"
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios"
 
 export interface ApiResponse<T> {
   data?: T
@@ -10,17 +10,17 @@ export interface ApiResponse<T> {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5083"
 
-// Axios örneğini yapılandır
+// Standart JSON istekleri için Axios örneği
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000, // 30 saniye zaman aşımı
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
   },
 })
 
-// İstek Interceptor'ı (Her istek öncesi çalışır)
+// İstek Interceptor'ı (Token ekleme)
 axiosInstance.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
@@ -31,27 +31,16 @@ axiosInstance.interceptors.request.use(
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Yanıt Interceptor'ı (Sunucudan gelen her yanıtta çalışır)
+// Yanıt Interceptor'ı
 axiosInstance.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response
-  },
-  (error: AxiosError) => {
-    if (error.response) {
-      const status = error.response.status
-      const data: any = error.response.data
-      console.error(`[API Hatası] ${status}:`, data?.message || error.message)
-    } else if (error.request) {
-      console.error("[API Network Hatası] Sunucuya ulaşılamıyor.")
-    } else {
-      console.error("[API İstek Hatası]", error.message)
-    }
-
+  (response) => response,
+  (error) => {
+    const status = error.response?.status
+    const data = error.response?.data
+    console.warn(`[API Durumu ${status || "Network"}]`, data?.message || error.message)
     return Promise.reject(error)
   }
 )
@@ -80,25 +69,66 @@ export const api = {
     return response.data
   },
 
+  /**
+   * Dosya Yükleme (Doğrudan Native XHR ile tarayıcı boundary'si garanti edilir)
+   */
   upload: async <T>(
     url: string,
     formData: FormData,
     onProgress?: (percent: number) => void
   ): Promise<T> => {
-    const response = await axiosInstance.post<T>(url, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          onProgress(percentCompleted)
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url}`
+
+      xhr.open("POST", fullUrl, true)
+      xhr.withCredentials = true
+
+      // JWT Token
+      if (typeof window !== "undefined") {
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken")
+        if (token) {
+          xhr.setRequestHeader("Authorization", `Bearer ${token}`)
         }
-      },
+      }
+
+      // Yükleme ilerleme takibi
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded * 100) / event.total)
+            onProgress(percent)
+          }
+        }
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const parsed = JSON.parse(xhr.responseText)
+            resolve(parsed)
+          } catch {
+            resolve(xhr.responseText as any)
+          }
+        } else {
+          try {
+            const errorJson = JSON.parse(xhr.responseText)
+            resolve(errorJson as any)
+          } catch {
+            reject(new Error(`Yükleme başarısız (HTTP ${xhr.status}): ${xhr.statusText}`))
+          }
+        }
+      }
+
+      xhr.onerror = () => {
+        reject(new Error("Sunucuya (http://localhost:5083) ulaşılamadı. Lütfen .NET API'nin çalıştığından emin olun."))
+      }
+
+      // FormData gönder (Tarayıcı multipart/form-data; boundary=... başlığını otomatik ekler)
+      xhr.send(formData)
     })
-    return response.data
   },
 }
 
 export default api
-export { axiosInstance }
+export { axiosInstance, BASE_URL }

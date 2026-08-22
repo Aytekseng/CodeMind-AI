@@ -1,13 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { Terminal, Shield, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, Sparkles } from "lucide-react"
+import { Terminal, Shield, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, Sparkles, Server, Zap, Cpu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AnalysisResultEvent } from "@/hooks/useSignalR"
 
 interface LoadingTerminalProps {
   fileName: string
+  isUploading?: boolean
+  uploadSuccess?: boolean
+  uploadError?: string | null
+  documentId?: string | null
   analysisResult: AnalysisResultEvent | null
   onReset: () => void
 }
@@ -19,46 +23,84 @@ interface LogLine {
   type: "system" | "kafka" | "worker" | "ai" | "success" | "error"
 }
 
-export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTerminalProps) {
+export function LoadingTerminal({
+  fileName,
+  isUploading,
+  uploadSuccess,
+  uploadError,
+  documentId,
+  analysisResult,
+  onReset,
+}: LoadingTerminalProps) {
   const [logs, setLogs] = React.useState<LogLine[]>([])
   const [isCompleted, setIsCompleted] = React.useState<boolean>(false)
   const logsContainerRef = React.useRef<HTMLDivElement>(null)
 
-  // Step-by-step logs simulation until real SignalR event arrives
+  // 1. Initial upload log
   React.useEffect(() => {
-    const plannedLogs: Omit<LogLine, "id">[] = [
-      { prefix: "[SYSTEM]", message: `Dosya (${fileName}) MinIO S3 nesne depolama alanına aktarıldı.`, type: "system" },
-      { prefix: "[KAFKA]", message: `'file-uploads' olay kuyruğuna event fırlatıldı.`, type: "kafka" },
-      { prefix: "[WORKER]", message: `Python AI Worker Kafka mesajını teslim aldı.`, type: "worker" },
-      { prefix: "[PGVECTOR]", message: `Kaynak kod AST & parçalara (chunk) bölündü, vektör embeddingleri PgVector'e yazıldı.`, type: "ai" },
-      { prefix: "[LLAMA 3]", message: `Llama 3 8B modeli RAG mimarisiyle siber güvenlik açığı taraması gerçekleştiriyor...`, type: "ai" },
-      { prefix: "[SIGNALR]", message: `C# BackgroundService üzerinden 'analysis-results' kuyruğu dinleniyor...`, type: "system" },
-    ]
-
-    let currentStep = 0
-    const interval = setInterval(() => {
-      if (currentStep < plannedLogs.length) {
-        const nextLog = plannedLogs[currentStep]
-        setLogs((prev) => [...prev, { ...nextLog, id: Date.now() + Math.random() }])
-        currentStep++
-      } else {
-        clearInterval(interval)
-      }
-    }, 1200)
-
-    return () => clearInterval(interval)
+    setLogs([
+      {
+        id: 1,
+        prefix: "[HTTP POST]",
+        message: `${fileName} dosyası .NET Web API (/api/Document/upload) sunucusuna aktarılıyor...`,
+        type: "system",
+      },
+    ])
   }, [fileName])
 
-  // When SignalR event arrives, complete the terminal
+  // 2. Real Upload Response from .NET API
+  React.useEffect(() => {
+    if (uploadSuccess && documentId) {
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          prefix: "[MINIO & DB]",
+          message: `Dosya MinIO nesne depolama alanına ve PostgreSQL'e kaydedildi. (Doküman ID: ${documentId})`,
+          type: "system",
+        },
+        {
+          id: Date.now() + 2,
+          prefix: "[KAFKA]",
+          message: `'file-uploads' olay kuyruğuna mesaj fırlatıldı -> Python AI Worker tetiklendi.`,
+          type: "kafka",
+        },
+        {
+          id: Date.now() + 3,
+          prefix: "[WORKER / LLM]",
+          message: `Llama 3 8B RAG modeli PgVector embedding ve güvenlik analizi yapıyor...`,
+          type: "ai",
+        },
+      ])
+    } else if (uploadError) {
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 99,
+          prefix: "[ERROR]",
+          message: `Yükleme başarısız oldu: ${uploadError}`,
+          type: "error",
+        },
+      ])
+    }
+  }, [uploadSuccess, uploadError, documentId])
+
+  // 3. Real SignalR Result
   React.useEffect(() => {
     if (analysisResult) {
       setIsCompleted(true)
       setLogs((prev) => [
         ...prev,
         {
-          id: Date.now(),
+          id: Date.now() + 10,
+          prefix: "[SIGNALR]",
+          message: `'ReceiveAnalysisResult' sinyali alındı! Dosya ID: ${analysisResult.fileId}`,
+          type: "system",
+        },
+        {
+          id: Date.now() + 11,
           prefix: "[SUCCESS]",
-          message: `Analiz tamamlandı! Kritiklik Derecesi: ${analysisResult.severity || "Belirlendi"}`,
+          message: `Analiz tamamlandı! Tespit Edilen Kritiklik: ${analysisResult.severity || "Normal"}`,
           type: "success",
         },
       ])
@@ -106,7 +148,12 @@ export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTe
         </div>
 
         <div className="flex items-center gap-2">
-          {isCompleted ? (
+          {uploadError ? (
+            <Badge variant="destructive" className="gap-1 text-[11px]">
+              <AlertTriangle className="h-3 w-3" />
+              <span>Hata Oluştu</span>
+            </Badge>
+          ) : isCompleted ? (
             <Badge variant="success" className="gap-1 text-[11px]">
               <CheckCircle2 className="h-3 w-3" />
               <span>Analiz Bitti</span>
@@ -114,7 +161,7 @@ export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTe
           ) : (
             <Badge variant="outline" className="gap-1.5 border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-[11px]">
               <Sparkles className="h-3 w-3 text-cyan-400 animate-spin" />
-              <span>AI Analiz Ediyor...</span>
+              <span>{isUploading ? "Sunucuya Yükleniyor..." : "AI Analiz Ediyor..."}</span>
             </Badge>
           )}
         </div>
@@ -126,7 +173,7 @@ export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTe
         className="h-80 overflow-y-auto p-5 font-mono text-xs space-y-3 bg-black/40 scroll-smooth"
       >
         <p className="text-zinc-500">
-          # CodeMind AI Daemon v1.0.0 (x86_64-win-dotnet10) - Olay Güdümlü Akış Başlatıldı
+          # CodeMind AI Daemon v1.0.0 (x86_64-win-dotnet10) - Gerçek Zamanlı Olay Akışı
         </p>
 
         {logs.map((log) => (
@@ -137,27 +184,27 @@ export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTe
           </div>
         ))}
 
-        {!isCompleted && (
+        {!isCompleted && !uploadError && (
           <div className="flex items-center gap-2 text-cyan-400 animate-pulse pt-2">
             <span className="h-2 w-2 rounded-full bg-cyan-400" />
-            <span className="text-xs">Model yanıtı bekleniyor...</span>
+            <span className="text-xs">Kafka & SignalR sinyali dinleniyor...</span>
           </div>
         )}
       </div>
 
-      {/* Terminal Bottom Action Area (when completed) */}
-      {isCompleted && analysisResult && (
+      {/* Terminal Bottom Action Area (when completed or error) */}
+      {isCompleted && analysisResult ? (
         <div className="border-t border-white/10 bg-[#0d101a]/95 p-5 animate-in fade-in duration-300">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-emerald-400" />
-                <span className="font-semibold text-white text-sm">Analiz Raporu Hazır!</span>
+                <span className="font-semibold text-white text-sm">Gerçek Analiz Raporu Hazır!</span>
                 <Badge variant={analysisResult.severity?.toLowerCase().includes("kritik") ? "destructive" : "success"}>
                   {analysisResult.severity || "Tamamlandı"}
                 </Badge>
               </div>
-              <p className="text-xs text-zinc-400 line-clamp-1 max-w-xl">
+              <p className="text-xs text-zinc-400 line-clamp-2 max-w-xl">
                 {analysisResult.aiSuggestion}
               </p>
             </div>
@@ -182,7 +229,14 @@ export function LoadingTerminal({ fileName, analysisResult, onReset }: LoadingTe
             </div>
           </div>
         </div>
-      )}
+      ) : uploadError ? (
+        <div className="border-t border-rose-500/20 bg-rose-500/10 p-4 flex items-center justify-between">
+          <span className="text-xs text-rose-300">{uploadError}</span>
+          <Button variant="outline" size="sm" onClick={onReset} className="text-xs">
+            Tekrar Dene
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

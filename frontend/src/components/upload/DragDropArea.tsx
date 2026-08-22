@@ -21,6 +21,7 @@ export function DragDropArea() {
   const [isUploading, setIsUploading] = React.useState<boolean>(false)
   const [uploadStatus, setUploadStatus] = React.useState<"idle" | "success" | "error">("idle")
   const [serverMessage, setServerMessage] = React.useState<string | null>(null)
+  const [uploadedDocumentId, setUploadedDocumentId] = React.useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = React.useState<boolean>(false)
 
   const { latestResult } = useSignalR()
@@ -30,6 +31,7 @@ export function DragDropArea() {
     setValidationError(null)
     setUploadStatus("idle")
     setServerMessage(null)
+    setUploadedDocumentId(null)
     setIsAnalyzing(false)
 
     const extension = file.name.split(".").pop()?.toLowerCase() || ""
@@ -85,6 +87,7 @@ export function DragDropArea() {
     setValidationError(null)
     setUploadStatus("idle")
     setServerMessage(null)
+    setUploadedDocumentId(null)
     setIsAnalyzing(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -97,20 +100,29 @@ export function DragDropArea() {
     setIsUploading(true)
     setUploadStatus("idle")
     setServerMessage(null)
+    setUploadedDocumentId(null)
     setIsAnalyzing(true) // Switch to live terminal mode
 
     try {
+      console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)
       const response = await uploadDocumentAsync(selectedFile)
-      if (response.isSuccess) {
+      console.log("[DragDropArea] API Yanıtı:", response)
+
+      if (response && response.isSuccess) {
         setUploadStatus("success")
         setServerMessage(response.message || "Dosya analize alındı!")
+        const docId = response.data?.documentId
+        if (docId) {
+          setUploadedDocumentId(docId)
+        }
       } else {
         setUploadStatus("error")
-        setServerMessage(response.errors?.[0] || response.message || response.error || "Yükleme sırasında hata oluştu.")
+        setServerMessage(response?.errors?.[0] || response?.message || "Yükleme sırasında hata oluştu.")
       }
     } catch (err: any) {
+      console.error("[DragDropArea] Yükleme hatası:", err)
       setUploadStatus("error")
-      setServerMessage(err?.message || "Sunucu bağlantı hatası.")
+      setServerMessage(err?.response?.data?.message || err?.message || "Sunucu bağlantı hatası.")
     } finally {
       setIsUploading(false)
     }
@@ -122,6 +134,10 @@ export function DragDropArea() {
       {isAnalyzing && selectedFile ? (
         <LoadingTerminal
           fileName={selectedFile.name}
+          isUploading={isUploading}
+          uploadSuccess={uploadStatus === "success"}
+          uploadError={uploadStatus === "error" ? serverMessage : null}
+          documentId={uploadedDocumentId}
           analysisResult={latestResult}
           onReset={handleRemoveFile}
         />

@@ -19,13 +19,14 @@ public class DocumentController : ControllerBase
     }
 
     [HttpPost("upload")]
-    public async Task<IActionResult> UploadFile(IFormFile file)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadFile([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
-            return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi.", "Lütfen bir dosya seçin."));
+            return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi veya boş dosya.", "Lütfen geçerli bir dosya seçin."));
 
         using var stream = file.OpenReadStream();
-        var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType);
+        var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType ?? "application/octet-stream");
 
         if (!response.IsSuccess)
             return BadRequest(response);
