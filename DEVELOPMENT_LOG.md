@@ -43,45 +43,55 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
    * `layout.tsx`: Sidebar ve Header genel sayfa düzenine oturtuldu.
    * `page.tsx`: Modern Hero karşılama alanı, Aşama 2 için dosya yükleme yer tutucusu ve özellik kartları oluşturuldu.
 
-#### 📦 Oluşturulan ve Güncellenen Dosyalar
-* `frontend_github_workflow.md` (Git stratejisi rehberi)
-* `frontend/components.json`
-* `frontend/src/lib/utils.ts`
-* `frontend/src/app/globals.css`
-* `frontend/src/app/layout.tsx`
-* `frontend/src/app/page.tsx`
-* `frontend/src/components/theme-provider.tsx`
-* `frontend/src/components/ui/button.tsx`
-* `frontend/src/components/ui/badge.tsx`
-* `frontend/src/components/ui/card.tsx`
-* `frontend/src/components/layout/Sidebar.tsx`
-* `frontend/src/components/layout/Header.tsx`
-
 #### 🔗 Git Commit Geçmişi
 * `51fb7ed` - `docs: add frontend github workflow strategy`
 * `54afa1f` - `chore: initialize Next.js app with Tailwind CSS`
 * `359d1bc` - `chore: setup shadcn/ui and configure dark theme`
 * `fbcba04` - `feat: create basic layout and sidebar navigation`
 
-#### 🧪 Doğrulama ve Test
-* `npm run build` komutu çalıştırıldı; TypeScript ve Next.js Turbopack derlemesi **0 hata** ile başarıyla tamamlandı.
-* Değişiklikler `main` dalına merge edilip GitHub uzak sunucusuna aktarıldı.
-
 ---
 
-### ⏳ Aşama 2: Sürükle-Bırak Dosya Yükleme (Drag & Drop UI + API)
-* **Çalışılacak Dal (Branch):** `feature/frontend-upload`
-* **Durum:** 🕒 Sıradaki Aşama
-* **Planlanan İşlemler:**
-  * `DragDropArea.tsx` sürükle-bırak bileşeni.
-  * Dosya uzantısı (.cs, .py, .js vb.) ve boyut doğrulama kuralları.
-  * C# Web API `POST /api/Document/upload` bağlantısı.
+### 🚀 Aşama 2: Sürükle-Bırak Dosya Yükleme (Drag & Drop UI + Modüler Servis)
+* **Tarih:** 22 Ağustos 2026
+* **Çalışılan Dal (Branch):** `feature/frontend-upload` ➔ `main`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Sürükle-Bırak Bileşeni (`DragDropArea.tsx`):**
+   * Sürükleme anında dinamik neon cyan ışıması ve ölçekleme animasyonları.
+   * Tıklayarak dosya seçme ve sürükle-bırak desteği.
+   * Desteklenen kod formatları (`.cs`, `.py`, `.js`, `.ts`, `.go`, `.java`, `.cpp`, `.sql` vb.) ve maksimum 10MB boyut sınırı doğrulaması.
+   * Geçersiz dosya formatı veya boyutunda anlık kırmızı uyarı rozeti.
+2. **Dosya Önizleme Kartı (`FilePreviewCard.tsx`):**
+   * Seçilen dosyanın uzantısına göre otomatik dil rozeti (C#, Python, JavaScript vb. renkli badge).
+   * Dosya adı ve formatlanmış boyut (KB/MB) bilgisi.
+   * "Kaldır/İptal Et" butonu ve loading animasyonlu "Analizi Başlat" butonu.
+   * Başarılı (Kuyruğa alındı) ve Hatalı durum bildirimleri.
+3. **Modüler Entegrasyon Servis Taslağı (`documentService.ts`):**
+   * Kullanıcının backend entegrasyonunu rahatça yazabilmesi için TypeScript tipleri (`ApiResponse<T>`, `UploadResultData`) ve FormData şablonu oluşturuldu.
+4. **Ana Sayfa Entegrasyonu (`page.tsx`):**
+   * Statik yer tutucu kaldırılarak yeni etkileşimli `DragDropArea` bileşeni bağlandı.
+
+#### 📦 Oluşturulan ve Güncellenen Dosyalar
+* `frontend/src/components/upload/DragDropArea.tsx`
+* `frontend/src/components/upload/FilePreviewCard.tsx`
+* `frontend/src/services/documentService.ts`
+* `frontend/src/app/page.tsx`
+
+#### 🔗 Git Commit Geçmişi
+* `eeafbc5` - `feat: build DragDropArea UI component with drag states`
+* `7e4d23d` - `feat: add file validation and FilePreviewCard component`
+* `6ad5487` - `feat: create modular documentService template and wire to home page`
+
+#### 🧪 Doğrulama ve Test
+* `npm run build` komutu çalıştırıldı; Next.js 14 App Router ve TypeScript derlemesi **0 hata** ile tamamlandı.
+* Değişiklikler `main` dalına merge edilip GitHub'a push edildi.
 
 ---
 
 ### ⏳ Aşama 3: Canlı AI Analiz Terminali & SignalR Entegrasyonu
 * **Çalışılacak Dal (Branch):** `feature/frontend-realtime`
-* **Durum:** 🕒 Bekliyor
+* **Durum:** 🕒 Sıradaki Aşama
 * **Planlanan İşlemler:**
   * `LoadingTerminal.tsx` daktilo/hacker efektli analiz bekleme terminali.
   * `useSignalR.ts` gerçek zamanlı WebSocket hook'u.
