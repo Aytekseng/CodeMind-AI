@@ -174,5 +174,24 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 #### 🧪 Doğrulama ve Test
 * Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
 
+---
 
+### 🚀 Aşama 8: Terminal Kalıcılığı, 60 FPS Kaydırma Performansı & React 19 Turbopack Uyumluluğu
+* **Tarih:** 13 Eylül 2026
+* **Çalışılan Dal (Branch):** `feature/zip-archive-support` ➔ `main` (Merge Edildi & GitHub'a Pushlandı)
+* **Durum:** ✅ Tamamlandı & Doğrulandı
 
+#### 📝 Gerçekleştirilen İşlemler
+1. **Global Singleton SignalR & Terminal Oturumu (`AnalysisContext.tsx`):**
+   * Önceden `Sidebar`, `Header` ve `DragDropArea` bileşenlerinin bağımsız olarak açtığı 3-4 adet WebSocket bağlantısı tek bir merkezi `AnalysisProvider` sağlayıcısına dönüştürüldü.
+   * `sessionStorage` (`codemind_terminal_session_v1`) entegrasyonu ile analiz devam ederken veya bittiğinde sayfalar arası gezinmelerde (Dashboard, Geçmiş vb.) canlı terminalin ve log akışının kaybolması önlendi.
+   * Terminale açık bir **"Yeni Dosya Yükle"** butonu eklendi; kullanıcı butona tıklamadığı sürece sonuçlar korunur, tıklandığında oturum sıfırlanır.
+2. **60 FPS Kaydırma Performansı & GPU Yükünün Giderilmesi:**
+   * Sayfa kaydırılırken Chromium motoruna ağır hesaplama (rasterization) bindiren gereksiz `backdrop-filter: blur(...)` katmanları (`Header`, `Sidebar`, `Card`, `FileTreeExplorer`, `CodeDiffViewer`, `globals.css`) temizlendi; pürüzsüz koyu tema paletiyle akıcı 60 FPS scrolling sağlandı.
+3. **React 19 Turbopack Uyumluluğu (`theme-provider.tsx`):**
+   * `next-themes` kütüphanesinin React 19 ağacı içerisine illegal `<script>` basması sebebiyle Turbopack geliştirici ekranında beliren dev overlay hatası giderildi; temiz React 19 yerel ThemeProvider entegre edildi.
+
+#### 🧪 Doğrulama ve Test
+* Next.js derlemesi (`npm run build`) Turbopack ile **0 hata** (9/9 sayfa).
+* .NET API derlemesi (`dotnet build`) **0 hata, 0 uyarı**.
+* Değişiklikler commitlendi, `main` dalına merge edildi ve GitHub'a pushlandı.
