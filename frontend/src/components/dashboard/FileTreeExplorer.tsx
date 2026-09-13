@@ -50,7 +50,7 @@ export function FileTreeExplorer({
   }, [files, searchQuery])
 
   return (
-    <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-[#0c0e17]/90 backdrop-blur-md overflow-hidden">
+    <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-[#0c0e17] overflow-hidden">
       {/* Explorer Header */}
       <div className="p-4 border-b border-white/10 bg-[#080a10]">
         <div className="flex items-center justify-between gap-2 mb-3">

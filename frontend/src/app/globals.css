@@ -47,38 +47,43 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background-color: #090a0f;
+  background-color: #07080c;
   color: #f3f4f6;
   font-feature-settings: "rlig" 1, "calt" 1;
   min-height: 100vh;
+  overflow-x: hidden;
+  text-rendering: optimizeSpeed;
 }
 
 /* Custom Cyberpunk / Dark UI utilities */
 .glow-cyan {
-  box-shadow: 0 0 20px -5px rgba(6, 182, 212, 0.35);
+  box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.3);
 }
 
 .glow-emerald {
-  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.3);
 }
 
 .glow-rose {
-  box-shadow: 0 0 20px -5px rgba(244, 63, 94, 0.35);
+  box-shadow: 0 0 15px -3px rgba(244, 63, 94, 0.3);
 }
 
 .glass-panel {
-  background: rgba(15, 17, 26, 0.75);
-  backdrop-filter: blur(12px);
+  background: #0d101a;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-panel-hover {
-  transition: all 0.2s ease-in-out;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 .glass-panel-hover:hover {
   border-color: rgba(6, 182, 212, 0.4);
-  background: rgba(18, 22, 34, 0.85);
+  background: #111422;
 }
 
 /* Custom scrollbars */
@@ -87,7 +92,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090a0f;
+  background: #07080c;
 }
 ::-webkit-scrollbar-thumb {
   background: #1f2438;

@@ -2,13 +2,13 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { UploadCloud, AlertCircle, Lock } from "lucide-react"
+import { UploadCloud, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
 import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
 import { uploadDocumentAsync } from "@/services/documentService"
-import { useSignalR } from "@/hooks/useSignalR"
 import { useAuth } from "@/hooks/useAuth"
+import { useAnalysis } from "@/context/AnalysisContext"
 import { toast } from "sonner"
 
 const ALLOWED_EXTENSIONS = [
@@ -17,39 +17,20 @@ const ALLOWED_EXTENSIONS = [
 const MAX_SINGLE_FILE_SIZE_MB = 10
 const MAX_ZIP_FILE_SIZE_MB = 50
 
-interface BatchUploadInfo {
-  projectId: string
-  projectName: string
-  batchId: string
-  totalExtractedFiles: number
-  extractedFiles: string[]
-  documentIds: string[]
-}
-
 export function DragDropArea() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+  const { session, startAnalysis, setUploadSuccess, setUploadError, resetAnalysis } = useAnalysis()
 
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
   const [isDragActive, setIsDragActive] = React.useState<boolean>(false)
   const [validationError, setValidationError] = React.useState<string | null>(null)
-  const [isUploading, setIsUploading] = React.useState<boolean>(false)
-  const [uploadStatus, setUploadStatus] = React.useState<"idle" | "success" | "error">("idle")
-  const [serverMessage, setServerMessage] = React.useState<string | null>(null)
-  const [uploadedDocumentId, setUploadedDocumentId] = React.useState<string | null>(null)
-  const [batchInfo, setBatchInfo] = React.useState<BatchUploadInfo | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = React.useState<boolean>(false)
+  const [isLocalUploading, setIsLocalUploading] = React.useState<boolean>(false)
 
-  const { latestResult } = useSignalR()
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const validateAndSetFile = (file: File) => {
     setValidationError(null)
-    setUploadStatus("idle")
-    setServerMessage(null)
-    setUploadedDocumentId(null)
-    setBatchInfo(null)
-    setIsAnalyzing(false)
 
     const extension = file.name.split(".").pop()?.toLowerCase() || ""
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
@@ -102,14 +83,9 @@ export function DragDropArea() {
     }
   }
 
-  const handleRemoveFile = () => {
+  const handleRemoveSelected = () => {
     setSelectedFile(null)
     setValidationError(null)
-    setUploadStatus("idle")
-    setServerMessage(null)
-    setUploadedDocumentId(null)
-    setBatchInfo(null)
-    setIsAnalyzing(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -128,12 +104,8 @@ export function DragDropArea() {
       return
     }
 
-    setIsUploading(true)
-    setUploadStatus("idle")
-    setServerMessage(null)
-    setUploadedDocumentId(null)
-    setBatchInfo(null)
-    setIsAnalyzing(true) // Switch to inline live terminal directly on this page
+    setIsLocalUploading(true)
+    startAnalysis(selectedFile.name)
 
     try {
       console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)
@@ -141,12 +113,8 @@ export function DragDropArea() {
       console.log("[DragDropArea] API Yanıtı:", response)
 
       if (response && response.isSuccess) {
-        setUploadStatus("success")
-        setServerMessage(response.message || "Dosya analize alındı!")
-
-        // Çoklu dosya .ZIP arşivi mi?
         if (response.data?.totalExtractedFiles && response.data.totalExtractedFiles > 0) {
-          setBatchInfo({
+          setUploadSuccess(response.data.documentIds?.[0] || null, {
             projectId: response.data.projectId || "",
             projectName: response.data.projectName || "",
             batchId: response.data.batchId || "",
@@ -154,51 +122,38 @@ export function DragDropArea() {
             extractedFiles: response.data.extractedFiles || [],
             documentIds: response.data.documentIds || [],
           })
-          if (response.data.documentIds && response.data.documentIds.length > 0) {
-            setUploadedDocumentId(response.data.documentIds[0])
-          }
         } else if (response.data?.documentId) {
-          setUploadedDocumentId(response.data.documentId)
+          setUploadSuccess(response.data.documentId, null)
+        } else {
+          setUploadSuccess(null, null)
         }
       } else {
-        setUploadStatus("error")
-        setServerMessage(response?.errors?.[0] || response?.message || "Yükleme sırasında hata oluştu.")
+        setUploadError(response?.errors?.[0] || response?.message || "Yükleme sırasında hata oluştu.")
       }
     } catch (err: any) {
       console.error("[DragDropArea] Yükleme hatası:", err)
-      setUploadStatus("error")
-      setServerMessage(err?.message || "Sunucu bağlantı hatası.")
+      setUploadError(err?.message || "Sunucu bağlantı hatası.")
     } finally {
-      setIsUploading(false)
+      setIsLocalUploading(false)
     }
   }
 
   return (
     <div className="space-y-4">
-      {/* If analyzing / in terminal mode, show the live LoadingTerminal inline right here */}
-      {isAnalyzing && selectedFile ? (
-        <LoadingTerminal
-          fileName={selectedFile.name}
-          isUploading={isUploading}
-          uploadSuccess={uploadStatus === "success"}
-          uploadError={uploadStatus === "error" ? serverMessage : null}
-          documentId={uploadedDocumentId}
-          batchInfo={batchInfo}
-          analysisResult={latestResult}
-          onReset={handleRemoveFile}
-        />
+      {/* Eğer kalıcı terminal oturumu aktifse (sayfa değiştirilse dahi), LoadingTerminal gösterilir */}
+      {session.isAnalyzing ? (
+        <LoadingTerminal />
       ) : selectedFile ? (
-        /* File Preview Card (when a file is chosen) */
+        /* Henüz analiz başlatılmamışken dosya önizleme kartı */
         <FilePreviewCard
           file={selectedFile}
-          isUploading={isUploading}
-          uploadStatus={uploadStatus}
-          errorMessage={serverMessage}
-          onRemove={handleRemoveFile}
+          isUploading={isLocalUploading}
+          uploadStatus="idle"
+          onRemove={handleRemoveSelected}
           onStartAnalysis={handleStartAnalysis}
         />
       ) : (
-        /* Drag and Drop Zone */
+        /* Sürükle-Bırak Alanı */
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -207,8 +162,8 @@ export function DragDropArea() {
           className={cn(
             "group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-12 text-center transition-all cursor-pointer",
             isDragActive
-              ? "border-cyan-400 bg-cyan-950/30 scale-[1.01] shadow-[0_0_35px_rgba(6,182,212,0.3)]"
-              : "border-white/10 bg-[#0c0e17]/80 hover:border-cyan-500/40 hover:bg-[#0f1220]/90"
+              ? "border-cyan-400 bg-cyan-950/20 scale-[1.005] shadow-[0_0_25px_rgba(6,182,212,0.25)]"
+              : "border-white/10 bg-[#0c0e17] hover:border-cyan-500/40 hover:bg-[#0f1220]"
           )}
         >
           <input
@@ -221,10 +176,10 @@ export function DragDropArea() {
 
           <div
             className={cn(
-              "flex h-16 w-16 items-center justify-center rounded-2xl transition-transform group-hover:scale-110",
+              "flex h-16 w-16 items-center justify-center rounded-2xl transition-transform group-hover:scale-105",
               isDragActive
-                ? "bg-cyan-500 text-black shadow-[0_0_30px_rgba(6,182,212,0.6)]"
-                : "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]"
+                ? "bg-cyan-500 text-black shadow-[0_0_20px_rgba(6,182,212,0.5)]"
+                : "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
             )}
           >
             <UploadCloud className="h-8 w-8" />
@@ -237,7 +192,7 @@ export function DragDropArea() {
             veya bilgisayarınızdan seçmek için <span className="text-cyan-400 underline underline-offset-2">tıklayın</span>
           </p>
 
-          {/* Badges of supported extensions */}
+          {/* Desteklenen uzantı rozetleri */}
           <div className="mt-6 flex flex-wrap justify-center gap-1.5 max-w-lg">
             <span className="rounded-md bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-mono text-amber-300 border border-amber-500/30 flex items-center gap-1">
               <span>📦</span>
@@ -247,7 +202,7 @@ export function DragDropArea() {
               (lang) => (
                 <span
                   key={lang}
-                  className="rounded-md bg-zinc-900/90 px-2 py-0.5 text-[11px] font-mono text-zinc-400 border border-zinc-800"
+                  className="rounded-md bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-400 border border-zinc-800"
                 >
                   {lang}
                 </span>
@@ -257,9 +212,9 @@ export function DragDropArea() {
         </div>
       )}
 
-      {/* Validation Error Alert */}
+      {/* Validasyon Hata Mesajı */}
       {validationError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300">
+        <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-[#150a0d] p-3.5 text-xs text-rose-300">
           <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
           <span>{validationError}</span>
         </div>

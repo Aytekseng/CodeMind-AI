@@ -77,7 +77,7 @@ export function Header() {
     : (user?.email ? user.email.substring(0, 2).toUpperCase() : "CM")
 
   return (
-    <header className="sticky top-0 z-30 flex h-18 w-full items-center justify-between border-b border-white/10 bg-[#090a0f]/80 px-8 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-18 w-full items-center justify-between border-b border-white/10 bg-[#090a0f] px-8">
       {/* Left breadcrumb / title */}
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">

@@ -60,7 +60,7 @@ export function CodeDiffViewer({
     vulnerabilityTitle?.toLowerCase().includes("high")
 
   return (
-    <div className="relative flex flex-col h-[560px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0c13] shadow-2xl backdrop-blur-xl">
+    <div className="relative flex flex-col h-[560px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0c13] shadow-2xl">
       {/* Viewer Header */}
       <div className="flex shrink-0 flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 bg-[#0f121d] px-5 py-3 gap-3">
         <div className="flex items-center gap-3">

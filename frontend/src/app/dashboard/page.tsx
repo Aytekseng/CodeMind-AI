@@ -247,7 +247,7 @@ function DashboardContent() {
             />
           )
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-[#0d101a]/80 p-12 text-center backdrop-blur-md flex flex-col items-center justify-center gap-4">
+          <div className="rounded-2xl border border-white/10 bg-[#0d101a] p-12 text-center flex flex-col items-center justify-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
               <FileCode2 className="h-8 w-8" />
             </div>

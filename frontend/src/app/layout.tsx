@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/context/AuthContext"
+import { AnalysisProvider } from "@/context/AnalysisContext"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { Toaster } from "sonner"
@@ -30,20 +31,22 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <div className="relative flex min-h-screen">
-              {/* Left Sidebar */}
-              <Sidebar />
+            <AnalysisProvider>
+              <div className="relative flex min-h-screen">
+                {/* Left Sidebar */}
+                <Sidebar />
 
-              {/* Main Content Area */}
-              <div className="flex flex-1 flex-col pl-72">
-                <Header />
-                <main className="flex-1 p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-950/20 via-[#07080c] to-[#07080c]">
-                  {children}
-                </main>
+                {/* Main Content Area */}
+                <div className="flex flex-1 flex-col pl-72">
+                  <Header />
+                  <main className="flex-1 p-8 bg-[#07080c] min-h-[calc(100vh-4.5rem)]">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-            {/* Sonner Global Toast Notifications */}
-            <Toaster theme="dark" position="bottom-right" richColors />
+              {/* Sonner Global Toast Notifications */}
+              <Toaster theme="dark" position="bottom-right" richColors />
+            </AnalysisProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

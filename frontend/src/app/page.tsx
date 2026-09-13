@@ -23,7 +23,7 @@ export default function Home() {
     <div className="mx-auto max-w-6xl space-y-10">
       {/* Guest Mode Restriction Notice Banner */}
       {!isAuthenticated && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-amber-500/30 bg-[#14120e] p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
               <Lock className="h-5 w-5" />
@@ -56,10 +56,7 @@ export default function Home() {
       )}
 
       {/* Hero Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f1220]/90 to-[#090b12]/90 p-8 shadow-2xl backdrop-blur-2xl">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f1220] to-[#090b12] p-8 shadow-xl">
         <div className="relative z-10 max-w-2xl space-y-4">
           <Badge variant="default" className="gap-1.5 py-1 px-3">
             <Sparkles className="h-3.5 w-3.5" />

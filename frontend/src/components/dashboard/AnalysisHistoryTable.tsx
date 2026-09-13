@@ -127,7 +127,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0d101a]/80 shadow-xl backdrop-blur-md overflow-hidden">
+    <div className="rounded-2xl border border-white/10 bg-[#0d101a] shadow-xl overflow-hidden">
       {/* Table Header, Filters & Search */}
       <div className="flex flex-col gap-4 p-5 border-b border-white/10">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

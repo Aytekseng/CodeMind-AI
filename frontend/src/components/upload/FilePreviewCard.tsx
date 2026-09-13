@@ -62,7 +62,7 @@ export function FilePreviewCard({
   const lang = getLanguageLabel(file.name)
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d101a]/90 p-5 shadow-xl backdrop-blur-md">
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d101a] p-5 shadow-lg">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         {/* File Details */}
         <div className="flex items-center gap-4">
