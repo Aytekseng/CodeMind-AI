@@ -12,6 +12,8 @@ export interface DocumentHistoryItem {
   score: number
   findingsCount: number
   latestAiSuggestion?: string
+  projectId?: string
+  projectName?: string
 }
 
 export interface DocumentReportDetail {
@@ -25,6 +27,8 @@ export interface DocumentReportDetail {
   aiSuggestion: string
   originalCode: string
   vulnerableLines: number[]
+  projectId?: string
+  projectName?: string
 }
 
 export interface DashboardStats {
@@ -37,26 +41,56 @@ export interface DashboardStats {
   recentDocuments: DocumentHistoryItem[]
 }
 
-export interface UploadResponseData {
+export interface SingleUploadResponseData {
   objectKey: string
   documentId: string
 }
 
+export interface ZipUploadResponseData {
+  projectId: string
+  projectName: string
+  batchId: string
+  totalExtractedFiles: number
+  extractedFiles: string[]
+  documentIds: string[]
+}
+
+export type UploadResultData = SingleUploadResponseData & Partial<ZipUploadResponseData>
+
+export interface ProjectFile {
+  documentId: string
+  fileName: string
+  relativePath: string
+  language: string
+  status: string
+  severity: string
+  score: number
+}
+
 /**
- * Dosya yükleme servisi (POST /api/Document/upload)
+ * Dosya veya .ZIP arşivi yükleme servisi (POST /api/Document/upload)
  */
 export async function uploadDocumentAsync(
   file: File,
   onProgress?: (percent: number) => void
-): Promise<ApiResponse<UploadResponseData>> {
+): Promise<ApiResponse<UploadResultData>> {
   const formData = new FormData()
   formData.append("file", file)
 
-  return await api.upload<ApiResponse<UploadResponseData>>(
+  return await api.upload<ApiResponse<UploadResultData>>(
     "/api/Document/upload",
     formData,
     onProgress
   )
+}
+
+/**
+ * Bir projeye ait tüm taranan dosyaları getirir (GET /api/Document/project/{projectId}/files)
+ */
+export async function getProjectFilesAsync(
+  projectId: string
+): Promise<ApiResponse<ProjectFile[]>> {
+  return await api.get<ApiResponse<ProjectFile[]>>(`/api/Document/project/${projectId}/files`)
 }
 
 /**

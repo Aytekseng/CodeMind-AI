@@ -12,10 +12,19 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 
 const ALLOWED_EXTENSIONS = [
-  "cs", "py", "js", "jsx", "ts", "tsx", "go", "java", "cpp", "c", "sql", "json", "yml", "yaml", "html", "css"
+  "cs", "py", "js", "jsx", "ts", "tsx", "go", "java", "cpp", "c", "sql", "json", "yml", "yaml", "html", "css", "zip"
 ]
-const MAX_FILE_SIZE_MB = 10
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+const MAX_SINGLE_FILE_SIZE_MB = 10
+const MAX_ZIP_FILE_SIZE_MB = 50
+
+interface BatchUploadInfo {
+  projectId: string
+  projectName: string
+  batchId: string
+  totalExtractedFiles: number
+  extractedFiles: string[]
+  documentIds: string[]
+}
 
 export function DragDropArea() {
   const router = useRouter()
@@ -28,6 +37,7 @@ export function DragDropArea() {
   const [uploadStatus, setUploadStatus] = React.useState<"idle" | "success" | "error">("idle")
   const [serverMessage, setServerMessage] = React.useState<string | null>(null)
   const [uploadedDocumentId, setUploadedDocumentId] = React.useState<string | null>(null)
+  const [batchInfo, setBatchInfo] = React.useState<BatchUploadInfo | null>(null)
   const [isAnalyzing, setIsAnalyzing] = React.useState<boolean>(false)
 
   const { latestResult } = useSignalR()
@@ -38,19 +48,23 @@ export function DragDropArea() {
     setUploadStatus("idle")
     setServerMessage(null)
     setUploadedDocumentId(null)
+    setBatchInfo(null)
     setIsAnalyzing(false)
 
     const extension = file.name.split(".").pop()?.toLowerCase() || ""
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
       setValidationError(
-        `Desteklenmeyen dosya formatı (.${extension}). Lütfen geçerli bir kod dosyası yükleyin.`
+        `Desteklenmeyen dosya formatı (.${extension}). Lütfen geçerli bir kod dosyası veya .ZIP arşivi yükleyin.`
       )
       return
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    const maxMb = extension === "zip" ? MAX_ZIP_FILE_SIZE_MB : MAX_SINGLE_FILE_SIZE_MB
+    const maxBytes = maxMb * 1024 * 1024
+
+    if (file.size > maxBytes) {
       setValidationError(
-        `Dosya boyutu çok büyük (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maksimum limit: ${MAX_FILE_SIZE_MB} MB.`
+        `Dosya boyutu çok büyük (${(file.size / (1024 * 1024)).toFixed(1)} MB). ${extension === "zip" ? "ZIP arşivleri" : "Tekil dosyalar"} için maksimum limit: ${maxMb} MB.`
       )
       return
     }
@@ -94,6 +108,7 @@ export function DragDropArea() {
     setUploadStatus("idle")
     setServerMessage(null)
     setUploadedDocumentId(null)
+    setBatchInfo(null)
     setIsAnalyzing(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -117,8 +132,8 @@ export function DragDropArea() {
     setUploadStatus("idle")
     setServerMessage(null)
     setUploadedDocumentId(null)
+    setBatchInfo(null)
     setIsAnalyzing(true) // Switch to inline live terminal directly on this page
-
 
     try {
       console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)
@@ -128,9 +143,22 @@ export function DragDropArea() {
       if (response && response.isSuccess) {
         setUploadStatus("success")
         setServerMessage(response.message || "Dosya analize alındı!")
-        const docId = response.data?.documentId
-        if (docId) {
-          setUploadedDocumentId(docId)
+
+        // Çoklu dosya .ZIP arşivi mi?
+        if (response.data?.totalExtractedFiles && response.data.totalExtractedFiles > 0) {
+          setBatchInfo({
+            projectId: response.data.projectId || "",
+            projectName: response.data.projectName || "",
+            batchId: response.data.batchId || "",
+            totalExtractedFiles: response.data.totalExtractedFiles,
+            extractedFiles: response.data.extractedFiles || [],
+            documentIds: response.data.documentIds || [],
+          })
+          if (response.data.documentIds && response.data.documentIds.length > 0) {
+            setUploadedDocumentId(response.data.documentIds[0])
+          }
+        } else if (response.data?.documentId) {
+          setUploadedDocumentId(response.data.documentId)
         }
       } else {
         setUploadStatus("error")
@@ -155,6 +183,7 @@ export function DragDropArea() {
           uploadSuccess={uploadStatus === "success"}
           uploadError={uploadStatus === "error" ? serverMessage : null}
           documentId={uploadedDocumentId}
+          batchInfo={batchInfo}
           analysisResult={latestResult}
           onReset={handleRemoveFile}
         />
@@ -209,7 +238,11 @@ export function DragDropArea() {
           </p>
 
           {/* Badges of supported extensions */}
-          <div className="mt-6 flex flex-wrap justify-center gap-1.5 max-w-md">
+          <div className="mt-6 flex flex-wrap justify-center gap-1.5 max-w-lg">
+            <span className="rounded-md bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-mono text-amber-300 border border-amber-500/30 flex items-center gap-1">
+              <span>📦</span>
+              <span>.ZIP Proje Arşivi (Maks 50MB)</span>
+            </span>
             {["C# (.cs)", "Python (.py)", "JavaScript (.js)", "TypeScript (.ts)", "Go (.go)", "SQL (.sql)"].map(
               (lang) => (
                 <span

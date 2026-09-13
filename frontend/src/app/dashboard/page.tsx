@@ -10,21 +10,48 @@ import { ScoreRadarChart } from "@/components/dashboard/ScoreRadarChart"
 import { SeverityBreakdown } from "@/components/dashboard/SeverityBreakdown"
 import { CodeDiffViewer } from "@/components/analysis/CodeDiffViewer"
 import { AnalysisHistoryTable } from "@/components/dashboard/AnalysisHistoryTable"
+import { FileTreeExplorer } from "@/components/dashboard/FileTreeExplorer"
 import { Badge } from "@/components/ui/badge"
 import {
   DashboardStats,
   DocumentReportDetail,
+  ProjectFile,
   getDashboardStatsAsync,
   getDocumentReportAsync,
+  getProjectFilesAsync,
 } from "@/services/documentService"
 
 function DashboardContent() {
   const searchParams = useSearchParams()
   const docId = searchParams.get("docId")
+  const projectId = searchParams.get("projectId")
 
   const [stats, setStats] = React.useState<DashboardStats | null>(null)
   const [reportDetail, setReportDetail] = React.useState<DocumentReportDetail | null>(null)
+  const [projectFiles, setProjectFiles] = React.useState<ProjectFile[]>([])
+  const [selectedDocId, setSelectedDocId] = React.useState<string | null>(docId)
   const [loading, setLoading] = React.useState<boolean>(true)
+
+  // Seçili dokümanın raporunu yükle
+  const loadReport = React.useCallback(async (id: string) => {
+    try {
+      const reportRes = await getDocumentReportAsync(id)
+      if (reportRes.isSuccess && reportRes.data) {
+        setReportDetail(reportRes.data)
+        setSelectedDocId(id)
+
+        // Eğer doküman bir projeye aitse ve henüz o projenin dosyaları çekilmemişse çek
+        if (reportRes.data.projectId) {
+          const filesRes = await getProjectFilesAsync(reportRes.data.projectId)
+          if (filesRes.isSuccess && filesRes.data && filesRes.data.length > 1) {
+            setProjectFiles(filesRes.data)
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Rapor yüklenirken hata:", err)
+    }
+  }, [])
 
   React.useEffect(() => {
     async function loadDashboard() {
@@ -35,14 +62,24 @@ function DashboardContent() {
           setStats(statsRes.data)
         }
 
-        // Eğer belirli bir doküman ID'si seçilmişse onun raporunu getir
-        if (docId) {
-          const reportRes = await getDocumentReportAsync(docId)
-          if (reportRes.isSuccess && reportRes.data) {
-            setReportDetail(reportRes.data)
+        // 1. Proje ID'si verilmişse proje dosyalarını çek
+        if (projectId) {
+          const filesRes = await getProjectFilesAsync(projectId)
+          if (filesRes.isSuccess && filesRes.data && filesRes.data.length > 0) {
+            setProjectFiles(filesRes.data)
+            // Eğer belirli bir docId yoksa ilk dosyayı seç
+            const targetDocId = docId || filesRes.data[0].documentId
+            await loadReport(targetDocId)
+            return
           }
+        }
+
+        // 2. Belirli bir doküman ID'si seçilmişse
+        if (docId) {
+          await loadReport(docId)
         } else {
           setReportDetail(null)
+          setProjectFiles([])
         }
       } catch (err) {
         console.error("Dashboard verileri yüklenirken hata:", err)
@@ -52,7 +89,7 @@ function DashboardContent() {
     }
 
     loadDashboard()
-  }, [docId])
+  }, [docId, projectId, loadReport])
 
   const severityData = React.useMemo(() => {
     if (!stats) return undefined
@@ -162,22 +199,53 @@ function DashboardContent() {
             </p>
           </div>
           {reportDetail && (
-            <Badge variant="outline" className="text-xs font-mono uppercase">
-              {reportDetail.language}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {reportDetail.projectName && (
+                <Badge variant="secondary" className="text-xs font-mono text-cyan-300 bg-cyan-950/50 border-cyan-500/30">
+                  📁 {reportDetail.projectName}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs font-mono uppercase">
+                {reportDetail.language}
+              </Badge>
+            </div>
           )}
         </div>
 
         {reportDetail ? (
-          <CodeDiffViewer
-            fileName={reportDetail.fileName}
-            language={reportDetail.language || "csharp"}
-            originalCode={reportDetail.originalCode}
-            suggestedCode={reportDetail.aiSuggestion}
-            vulnerableLines={reportDetail.vulnerableLines}
-            vulnerabilityTitle={reportDetail.severity}
-            vulnerabilityDescription={reportDetail.aiSuggestion}
-          />
+          projectFiles.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div className="lg:col-span-4">
+                <FileTreeExplorer
+                  files={projectFiles}
+                  selectedDocumentId={selectedDocId}
+                  onSelectDocument={(id) => loadReport(id)}
+                  projectName={reportDetail.projectName || "Proje Deposu"}
+                />
+              </div>
+              <div className="lg:col-span-8 min-w-0">
+                <CodeDiffViewer
+                  fileName={reportDetail.fileName}
+                  language={reportDetail.language || "csharp"}
+                  originalCode={reportDetail.originalCode}
+                  suggestedCode={reportDetail.aiSuggestion}
+                  vulnerableLines={reportDetail.vulnerableLines}
+                  vulnerabilityTitle={reportDetail.severity}
+                  vulnerabilityDescription={reportDetail.aiSuggestion}
+                />
+              </div>
+            </div>
+          ) : (
+            <CodeDiffViewer
+              fileName={reportDetail.fileName}
+              language={reportDetail.language || "csharp"}
+              originalCode={reportDetail.originalCode}
+              suggestedCode={reportDetail.aiSuggestion}
+              vulnerableLines={reportDetail.vulnerableLines}
+              vulnerabilityTitle={reportDetail.severity}
+              vulnerabilityDescription={reportDetail.aiSuggestion}
+            />
+          )
         ) : (
           <div className="rounded-2xl border border-white/10 bg-[#0d101a]/80 p-12 text-center backdrop-blur-md flex flex-col items-center justify-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]">

@@ -110,6 +110,14 @@ sequenceDiagram
 - `DocumentService` içerisinde yüklenen dosyalar ve analiz raporları oturum açmış kullanıcının `TenantId`'sine bağlandı (Multi-Tenancy).
 - Frontend'de siberpunk temalı `/login` ve `/register` sayfaları, `AuthContext` / `useAuth` hook'u, Header profil menüsü ve çıkış yapma mekanizması tamamlandı.
 
+### ✅ Aşama 8: Çoklu Dosya ve .ZIP Proje Arşivi Analiz Desteği
+- Zip-Slip path traversal koruması ve akıllı gürültü filtreleme (`node_modules`, `bin`, `.git`, `.dll` vb. otomatik ayıklama) geliştirildi.
+- .ZIP arşivleri için Kestrel gövde limiti 60MB'a çıkarıldı; `UploadAndQueueZipAsync` ile dosyalar MinIO'ya ve PostgreSQL `Project` ilişkisiyle topluca kaydedildi.
+- Kafka `file-uploads` kuyruğuna `BatchId` ile fırlatma ve SignalR üzerinden anlık dosya adı/proje bildirimleri entegre edildi.
+- `LoadingTerminal`: Canlı çoklu dosya ilerleme çubuğu (`4/12 dosya - %33`) ve her dosya için zafiyet rozet akışı eklendi.
+- `FileTreeExplorer` & `Dashboard`: Çoklu dosya projelerinde sol tarafta dosya ağacı gezgini ve seçilen dosyanın diff/raporunu gösteren split-view layout'u devreye alındı.
+- `GlobalExceptionMiddleware` ile sunucu genelinde standart RFC 7807 hata yakalama sağlandı.
+
 ---
 
 ## 4. Gelecek Yol Haritası (Future Roadmap)
@@ -118,9 +126,9 @@ sequenceDiagram
 1. **✅ Kimlik Doğrulama ve Yetkilendirme (JWT & Auth) [TAMAMLANDI]:**
    - Kayıt Ol / Giriş Yap (Register/Login) ekranları.
    - JWT token ile kullanıcı ve şirket bazlı (Multi-Tenancy) veri izolasyonu.
-2. **Çoklu Dosya / Proje Arşivi (.ZIP) Yükleme Desteği:**
-   - Tekil dosya yerine tüm proje reposunun veya `.zip` arşivinin taranması.
-3. **Global Exception Handling & Merkezi Loglama:**
+2. **✅ Çoklu Dosya / Proje Arşivi (.ZIP) Yükleme Desteği [TAMAMLANDI]:**
+   - Tekil dosya yerine tüm proje reposunun veya `.zip` arşivinin taranması, gürültü filtreleme, canlı progress bar ve dosya ağacı gezgini.
+3. **Merkezi Loglama (Serilog Entegrasyonu):**
    - Serilog ile yapılandırılmış logların ElasticSearch veya dosyaya yazılması.
 
 ### 🔵 Opsiyonel / İleri Düzey Vizyoner Eklentiler

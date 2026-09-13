@@ -144,4 +144,35 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 #### 🧪 Doğrulama ve Test
 * Next.js derlemesi (`npm run build`) **0 hata** ile tamamlandı.
 
+---
+
+### 🚀 Aşama 7: Çoklu Dosya ve .ZIP Proje Arşivi Analiz Desteği (Multi-File SAST Engine)
+* **Tarih:** 13 Eylül 2026
+* **Çalışılan Dal (Branch):** `feature/zip-archive-support`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Backend & Güvenlik Altyapısı:**
+   * `GlobalExceptionMiddleware.cs`: Beklenmeyen sunucu hatalarını standart `ApiResponse` ve RFC 7807 formatında yakalayan middleware geliştirildi.
+   * `Program.cs`: ZIP arşivleri için Kestrel ve FormOptions gövde boyutu limiti 60MB'a yükseltildi.
+   * `DocumentService.cs`: `UploadAndQueueZipAsync` metodu yazıldı.
+     - **Zip-Slip Koruması:** `..` ve mutlak yol güvenlik denetimleri yapıldı.
+     - **Akıllı Gürültü Filtresi:** `node_modules`, `bin`, `obj`, `.git`, `.vs`, `.next`, `__pycache__`, `.venv` ve ikili dosyalar (`.dll`, `.exe`, resim/video/pdf) ayıklandı. Sadece kaynak kod dosyaları (`.cs`, `.py`, `.js`, `.ts`, `.go`, `.java` vb.) seçildi.
+     - **Proje & Doküman:** Dinamik `Project` kaydı açıldı, ayıklanan tüm dosyalar `Document` olarak projeye ve MinIO'ya kaydedildi.
+     - **Kuyruk:** Her dosya `BatchId`, `BatchTotal`, `BatchIndex` ve `ProjectId` meta verileriyle Kafka `file-uploads` kuyruğuna aktarıldı.
+   * `DocumentController.cs`: `.zip` uzantısını otomatik tespit edip arşiv işleyicisine yönlendiren yapı ve `GET /api/Document/project/{projectId}/files` uç noktası eklendi.
+   * `AnalysisResultBackgroundService.cs`: SignalR `ReceiveAnalysisResult` olayı `fileName` ve `projectId` parametreleriyle zenginleştirildi.
+2. **Frontend UI & Canlı Çoklu Dosya Deneyimi:**
+   * `documentService.ts`: `ZipUploadResponseData`, `ProjectFile` tipleri ve `getProjectFilesAsync` servisi tanımlandı.
+   * `useSignalR.ts`: `fileName` ve `projectId` parametreleri SignalR olay dinleyicisine eklendi.
+   * `DragDropArea.tsx`: `.zip` formatı, 50MB sınır, `📦 .ZIP Proje Arşivi` rozeti ve batch durumu bağlandı.
+   * `FilePreviewCard.tsx`: `.zip` dosyası seçildiğinde özel `Archive` ikonu ve amber neon tema uygulandı.
+   * `LoadingTerminal.tsx`: Çoklu dosya taranırken dinamik **İlerleme Çubuğu (% ilerleme)**, anlık taranan dosya sayacı (`5/14 dosya`) ve tamamlandığında `"Tüm Projeyi İncele"` butonu eklendi.
+   * `FileTreeExplorer.tsx`: Dashboard için sol dosya ağacı gezgini geliştirildi; arama filtresi ve zafiyet rozetleriyle dosyalar arası anlık geçiş sağlandı.
+   * `dashboard/page.tsx`: Çoklu dosya projelerinde `FileTreeExplorer` + `CodeDiffViewer` bölünmüş düzeni (split view) kuruldu.
+
+#### 🧪 Doğrulama ve Test
+* Hem .NET API (`dotnet build`) hem de Next.js (`npm run build`) **0 hata** ile derlendi.
+
+
 

@@ -1,9 +1,11 @@
 using System.Text;
 using CodeMind.Api.Hubs;
+using CodeMind.Api.Middlewares;
 using CodeMind.Domain.Interfaces;
 using CodeMind.Infrastructure.Data;
 using CodeMind.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -11,6 +13,16 @@ using Microsoft.IdentityModel.Tokens;
 DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Multipart ve İstek Gövdesi Boyut Limiti (ZIP için 60MB)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 60 * 1024 * 1024;
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 60 * 1024 * 1024;
+});
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -68,6 +80,9 @@ var app = builder.Build();
 
 // CORS en başta olmalıdır (Tüm istekler ve SignalR Negotiate için)
 app.UseCors("AllowFrontend");
+
+// Global Exception Handler (Tüm beklenmeyen hataları standart ApiResponse ile yakalar)
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

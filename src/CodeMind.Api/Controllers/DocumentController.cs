@@ -28,12 +28,33 @@ public class DocumentController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi veya boş dosya.", "Lütfen geçerli bir dosya seçin."));
 
+        var extension = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
+
         using var stream = file.OpenReadStream();
+
+        // 1. Eğer dosya bir .ZIP arşivi ise çoklu dosya işleyicisine yönlendir
+        if (extension == ".zip" || file.ContentType == "application/zip" || file.ContentType == "application/x-zip-compressed")
+        {
+            var zipResponse = await _documentService.UploadAndQueueZipAsync(stream, file.FileName);
+            if (!zipResponse.IsSuccess)
+                return BadRequest(zipResponse);
+
+            return Ok(zipResponse);
+        }
+
+        // 2. Tekil kod dosyası ise mevcut işleyiciyi kullan
         var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType ?? "application/octet-stream");
 
         if (!response.IsSuccess)
             return BadRequest(response);
 
+        return Ok(response);
+    }
+
+    [HttpGet("project/{projectId:guid}/files")]
+    public async Task<IActionResult> GetProjectFiles(Guid projectId)
+    {
+        var response = await _documentService.GetProjectDocumentsAsync(projectId);
         return Ok(response);
     }
 

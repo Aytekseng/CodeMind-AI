@@ -48,6 +48,7 @@ public class AnalysisResultBackgroundService : BackgroundService
                         // 1. Doküman durumunu güncelle
                         var doc = await dbContext.Documents
                             .IgnoreQueryFilters()
+                            .Include(d => d.Project)
                             .FirstOrDefaultAsync(d => d.Id == eventData.FileId, stoppingToken);
 
                         if (doc != null)
@@ -68,12 +69,14 @@ public class AnalysisResultBackgroundService : BackgroundService
                         await dbContext.SaveChangesAsync(stoppingToken);
                         Console.WriteLine($"[C# Consumer] Sonuç başarıyla DB'ye kaydedildi.");
 
-                        // 3. SignalR ile frontend'e anlık bildir
+                        // 3. SignalR ile frontend'e anlık bildir (Dosya adı ve Proje ID'si ile zenginleştirildi)
                         await _hubContext.Clients.All.SendAsync(
                             "ReceiveAnalysisResult",
                             eventData.FileId.ToString(),
                             eventData.Severity ?? "Medium",
                             eventData.AiSuggestion ?? "",
+                            doc?.FileName ?? "",
+                            doc?.ProjectId.ToString() ?? "",
                             cancellationToken: stoppingToken
                         );
                         Console.WriteLine($"[C# Consumer] Arayüze SignalR bildirim komutu verildi!");

@@ -8,6 +8,8 @@ export interface AnalysisResultEvent {
   fileId: string
   severity: string
   aiSuggestion: string
+  fileName?: string
+  projectId?: string
   timestamp: Date
 }
 
@@ -25,7 +27,9 @@ export function useSignalR() {
       result.severity?.toLowerCase().includes("kritik") ||
       result.severity?.toLowerCase().includes("critical")
 
-    toast(isCritical ? "🚨 Kritik Güvenlik Açığı Tespiti!" : "✨ AI Analizi Tamamlandı", {
+    const fileLabel = result.fileName ? `[${result.fileName}] ` : ""
+
+    toast(isCritical ? `🚨 Kritik Zafiyet: ${result.fileName || "Kod"}` : `✨ AI Analizi: ${result.fileName || "Kod"}`, {
       description: `Kritiklik: ${result.severity || "Belirtilmemiş"}\n${result.aiSuggestion?.slice(0, 100)}...`,
       duration: 8000,
       action: {
@@ -59,12 +63,14 @@ export function useSignalR() {
     connectionRef.current = connection
 
     // Olay Dinleyicisi
-    connection.on("ReceiveAnalysisResult", (fileId: string, severity: string, aiSuggestion: string) => {
-      console.log("[SignalR] ReceiveAnalysisResult alındı:", { fileId, severity, aiSuggestion })
+    connection.on("ReceiveAnalysisResult", (fileId: string, severity: string, aiSuggestion: string, fileName?: string, projectId?: string) => {
+      console.log("[SignalR] ReceiveAnalysisResult alındı:", { fileId, severity, aiSuggestion, fileName, projectId })
       const event: AnalysisResultEvent = {
         fileId,
         severity,
         aiSuggestion,
+        fileName,
+        projectId,
         timestamp: new Date(),
       }
       if (isMounted) {

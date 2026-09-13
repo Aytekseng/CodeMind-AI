@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { FileCode2, X, Play, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { FileCode2, Archive, X, Play, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 interface FilePreviewCardProps {
   file: File
@@ -22,28 +23,31 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
 }
 
-function getLanguageLabel(fileName: string): { label: string; color: string } {
+function getLanguageLabel(fileName: string): { label: string; color: string; isZip: boolean } {
   const ext = fileName.split(".").pop()?.toLowerCase()
+  if (ext === "zip") {
+    return { label: "PROJE ARŞİVİ (.ZIP)", color: "bg-amber-500/20 text-amber-300 border-amber-500/40", isZip: true }
+  }
   switch (ext) {
     case "cs":
-      return { label: "C#", color: "bg-purple-500/20 text-purple-400 border-purple-500/30" }
+      return { label: "C#", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", isZip: false }
     case "py":
-      return { label: "Python", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" }
+      return { label: "Python", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", isZip: false }
     case "js":
-      return { label: "JavaScript", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" }
+      return { label: "JavaScript", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", isZip: false }
     case "ts":
-      return { label: "TypeScript", color: "bg-sky-500/20 text-sky-400 border-sky-500/30" }
+      return { label: "TypeScript", color: "bg-sky-500/20 text-sky-400 border-sky-500/30", isZip: false }
     case "go":
-      return { label: "Go", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" }
+      return { label: "Go", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30", isZip: false }
     case "java":
-      return { label: "Java", color: "bg-red-500/20 text-red-400 border-red-500/30" }
+      return { label: "Java", color: "bg-red-500/20 text-red-400 border-red-500/30", isZip: false }
     case "cpp":
     case "c":
-      return { label: "C/C++", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" }
+      return { label: "C/C++", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30", isZip: false }
     case "sql":
-      return { label: "SQL", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" }
+      return { label: "SQL", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", isZip: false }
     default:
-      return { label: ext?.toUpperCase() || "CODE", color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" }
+      return { label: ext?.toUpperCase() || "CODE", color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30", isZip: false }
   }
 }
 
@@ -62,8 +66,13 @@ export function FilePreviewCard({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         {/* File Details */}
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
-            <FileCode2 className="h-6 w-6" />
+          <div className={cn(
+            "flex h-12 w-12 items-center justify-center rounded-xl border transition-colors",
+            lang.isZip
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+              : "bg-cyan-500/10 border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+          )}>
+            {lang.isZip ? <Archive className="h-6 w-6" /> : <FileCode2 className="h-6 w-6" />}
           </div>
 
           <div className="space-y-1">

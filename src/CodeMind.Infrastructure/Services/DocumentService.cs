@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using CodeMind.Domain.DTOs;
 using CodeMind.Domain.Entities;
+using CodeMind.Domain.Enums;
 using CodeMind.Domain.Interfaces;
 using CodeMind.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +15,19 @@ namespace CodeMind.Infrastructure.Services;
 
 public class DocumentService : IDocumentService
 {
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "node_modules", "bin", "obj", ".git", ".vs", ".idea", ".vscode", "dist", "build",
+        ".next", "__pycache__", ".venv", "venv", "target", ".gradle", ".svn", ".hg",
+        ".cache", ".turbo", "out", "coverage", ".nyc_output"
+    };
+
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".java", ".cpp", ".c", ".h", ".hpp",
+        ".rs", ".php", ".rb", ".swift", ".kt", ".scala", ".sql", ".html", ".css", ".scss",
+        ".json", ".yaml", ".yml", ".xml", ".sh", ".ps1", ".bat", ".dockerfile", ".toml", ".md"
+    };
     private readonly IMinIOService _minIOService;
     private readonly IMessageProducer _kafkaProducer;
     private readonly AppDbContext _dbContext;
@@ -110,6 +125,163 @@ public class DocumentService : IDocumentService
         }
     }
 
+    public async Task<ApiResponse<ZipUploadResponseDto>> UploadAndQueueZipAsync(Stream zipStream, string archiveName)
+    {
+        try
+        {
+            // 1. Tenant belirleme
+            Guid tenantId = _currentUserService.TenantId;
+            Tenant? tenant = null;
+
+            if (tenantId != Guid.Empty)
+            {
+                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == tenantId);
+            }
+
+            if (tenant == null)
+            {
+                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+                if (tenant == null)
+                {
+                    tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
+                    _dbContext.Tenants.Add(tenant);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+
+            // 2. Zip arşivi stream üzerinden açılır
+            using var zipArchive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: false);
+
+            // 3. Güvenlik ve filtreleme denetimi (Zip-Slip ve gürültü filtreleme)
+            var validEntries = new List<ZipArchiveEntry>();
+            foreach (var entry in zipArchive.Entries)
+            {
+                // Dizinleri atla
+                if (string.IsNullOrEmpty(entry.Name)) continue;
+
+                // Zip-Slip (Path traversal) kontrolü
+                if (entry.FullName.Contains("..") || entry.FullName.StartsWith('/') || entry.FullName.StartsWith('\\'))
+                    continue;
+
+                // Gürültülü dizinleri atla
+                var pathSegments = entry.FullName.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                if (pathSegments.Any(segment => IgnoredDirectories.Contains(segment)))
+                    continue;
+
+                // Uzantı kontrolü
+                var ext = Path.GetExtension(entry.Name);
+                if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
+                    continue;
+
+                // Boyut kontrolü (Boş veya tekil 10MB üstü dosyalar atlanır)
+                if (entry.Length == 0 || entry.Length > 10 * 1024 * 1024)
+                    continue;
+
+                validEntries.Add(entry);
+                if (validEntries.Count >= 300) break; // Güvenlik üst limiti (Maks 300 dosya)
+            }
+
+            if (validEntries.Count == 0)
+            {
+                return ApiResponse<ZipUploadResponseDto>.Fail(
+                    "Arşiv içerisinde analiz edilebilecek geçerli kaynak kod dosyası bulunamadı. " +
+                    "(Desteklenen formatlar: .cs, .py, .js, .ts, .go, .java vb.)"
+                );
+            }
+
+            // 4. Proje adını arşiv adından türet ve yeni Proje oluştur
+            string projectName = Path.GetFileNameWithoutExtension(archiveName);
+            if (string.IsNullOrWhiteSpace(projectName)) projectName = "Kod Deposu";
+
+            var mostCommonExt = validEntries
+                .Select(e => Path.GetExtension(e.Name))
+                .GroupBy(e => e)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault()?.Key ?? ".cs";
+            string primaryLanguage = GetLanguageFromFileName("file" + mostCommonExt);
+
+            var project = new Project
+            {
+                Id = Guid.NewGuid(),
+                Name = projectName,
+                TenantId = tenant.Id,
+                Language = primaryLanguage
+            };
+            _dbContext.Projects.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            // 5. Dosyaları MinIO'ya yükle, DB'ye Document olarak ekle ve Kafka'ya fırlat
+            var batchId = Guid.NewGuid().ToString();
+            var extractedNames = new List<string>();
+            var documentIds = new List<Guid>();
+
+            for (int i = 0; i < validEntries.Count; i++)
+            {
+                var entry = validEntries[i];
+                var normalizedPath = entry.FullName.Replace('\\', '/');
+
+                using var entryStream = entry.Open();
+                using var ms = new MemoryStream();
+                await entryStream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                string savedObjectName = await _minIOService.UploadFileAsync(ms, entry.Name, "text/plain");
+
+                var document = new Document
+                {
+                    Id = Guid.NewGuid(),
+                    ProjectId = project.Id,
+                    FileName = normalizedPath,
+                    StorageUrl = savedObjectName,
+                    Status = DocumentStatus.Pending
+                };
+
+                _dbContext.Documents.Add(document);
+                extractedNames.Add(normalizedPath);
+                documentIds.Add(document.Id);
+
+                var eventMessage = new
+                {
+                    FileId = document.Id,
+                    FileName = normalizedPath,
+                    ObjectKey = savedObjectName,
+                    UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
+                    TenantId = tenant.Id.ToString(),
+                    BatchId = batchId,
+                    BatchTotal = validEntries.Count,
+                    BatchIndex = i + 1,
+                    ProjectId = project.Id.ToString()
+                };
+
+                await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            Console.WriteLine($"[DocumentService] {validEntries.Count} dosya içeren '{projectName}' arşivi MinIO'ya ve Kafka kuyruğuna aktarıldı. BatchId: {batchId}");
+
+            var responseDto = new ZipUploadResponseDto
+            {
+                ProjectId = project.Id,
+                ProjectName = project.Name,
+                BatchId = batchId,
+                TotalExtractedFiles = validEntries.Count,
+                ExtractedFiles = extractedNames,
+                DocumentIds = documentIds
+            };
+
+            return ApiResponse<ZipUploadResponseDto>.Success(
+                responseDto, 
+                $"{validEntries.Count} adet geçerli kod dosyası başarıyla ayıklandı ve analiz kuyruğuna aktarıldı."
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[DocumentService Zip Hata] {ex.Message} -> {ex.StackTrace}");
+            return ApiResponse<ZipUploadResponseDto>.Fail(ex.Message, "Arşiv işlenirken veya kuyruğa aktarılırken bir hata oluştu.");
+        }
+    }
+
     public async Task<ApiResponse<List<DocumentHistoryDto>>> GetDocumentHistoryAsync()
     {
         try
@@ -125,6 +297,7 @@ public class DocumentService : IDocumentService
             }
 
             var documents = await query
+                .Include(d => d.Project)
                 .Include(d => d.AnalysisReports)
                 .OrderByDescending(d => d.Id)
                 .ToListAsync();
@@ -145,7 +318,9 @@ public class DocumentService : IDocumentService
                     Severity = severity,
                     Score = score,
                     FindingsCount = d.AnalysisReports.Count,
-                    LatestAiSuggestion = latestReport?.AiSuggestion
+                    LatestAiSuggestion = latestReport?.AiSuggestion,
+                    ProjectId = d.ProjectId,
+                    ProjectName = d.Project?.Name
                 };
             }).ToList();
 
@@ -154,6 +329,49 @@ public class DocumentService : IDocumentService
         catch (Exception ex)
         {
             return ApiResponse<List<DocumentHistoryDto>>.Fail(ex.Message, "Geçmiş listesi alınırken hata oluştu.");
+        }
+    }
+
+    public async Task<ApiResponse<List<ProjectFileDto>>> GetProjectDocumentsAsync(Guid projectId)
+    {
+        try
+        {
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var documents = await query
+                .Where(d => d.ProjectId == projectId)
+                .Include(d => d.AnalysisReports)
+                .OrderBy(d => d.FileName)
+                .ToListAsync();
+
+            var files = documents.Select(d =>
+            {
+                var report = d.AnalysisReports.FirstOrDefault();
+                return new ProjectFileDto
+                {
+                    DocumentId = d.Id,
+                    FileName = Path.GetFileName(d.FileName),
+                    RelativePath = d.FileName,
+                    Language = GetLanguageFromFileName(d.FileName),
+                    Status = d.Status.ToString(),
+                    Severity = report?.Severity ?? "İnceleniyor",
+                    Score = CalculateScoreFromSeverity(report?.Severity)
+                };
+            }).ToList();
+
+            return ApiResponse<List<ProjectFileDto>>.Success(files, "Proje dosyaları başarıyla getirildi.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<ProjectFileDto>>.Fail(ex.Message, "Proje dosyaları alınırken hata oluştu.");
         }
     }
 
@@ -172,6 +390,7 @@ public class DocumentService : IDocumentService
             }
 
             var document = await query
+                .Include(d => d.Project)
                 .Include(d => d.AnalysisReports)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -198,6 +417,8 @@ public class DocumentService : IDocumentService
                 Score = CalculateScoreFromSeverity(latestReport?.Severity),
                 AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz çıktısı bekleniyor...",
                 OriginalCode = originalFileContent,
+                ProjectId = document.ProjectId,
+                ProjectName = document.Project?.Name,
                 VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
                     ? new List<int> { latestReport.LineNumber } 
                     : new List<int>()
