@@ -10,7 +10,7 @@ export default function HistoryPage() {
   return (
     <AuthGuard
       pageTitle="Geçmiş Analiz Arşivi"
-      pageDescription="Şirketinize ait taranmış kaynak kod analiz geçmişini ve denetim loglarını görüntülemek için lütfen oturum açın."
+      pageDescription="Hesabınıza ait taranmış kaynak kod analiz geçmişini ve güvenlik raporlarını görüntülemek için lütfen oturum açın."
     >
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Page Header */}
@@ -24,7 +24,7 @@ export default function HistoryPage() {
               </Badge>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Daha önce taranmış tüm kaynak kod dosyalarının rapor geçmişi ve denetim logları
+              Daha önce taranmış tüm kaynak kod dosyalarının güvenlik raporları ve analiz geçmişi
             </p>
           </div>
         </div>

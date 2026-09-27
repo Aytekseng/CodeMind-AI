@@ -143,7 +143,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-white">Geçmiş Analiz Raporları</h3>
-            <p className="text-xs text-zinc-400">PostgreSQL veritabanındaki tüm analiz kayıtları ve güvenlik denetimleri</p>
+            <p className="text-xs text-zinc-400">Taranmış kaynak kodlarınıza ait güvenlik denetimleri ve analiz detayları</p>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -196,7 +196,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 text-zinc-400 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
-            <span className="text-xs font-mono">PostgreSQL verileri getiriliyor...</span>
+            <span className="text-xs font-mono">Analiz raporları yükleniyor...</span>
           </div>
         ) : filteredRecords.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-400 gap-3">
@@ -238,7 +238,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                   <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-mono border bg-cyan-950/30 text-cyan-300 border-cyan-500/20">
                       <span>{getModelIcon(item.modelUsed)}</span>
-                      <span>{item.modelUsed || "Llama 3"}</span>
+                      <span>{item.modelUsed || "AI Denetçi"}</span>
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-zinc-400">{formatDate(item.createdAt)}</td>
@@ -311,7 +311,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-white flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                    {activeModalItem.modelUsed || "Llama 3"} AI Analiz Raporu:
+                    {activeModalItem.modelUsed ? `${activeModalItem.modelUsed} Analiz Raporu:` : "Yapay Zeka Analiz Raporu:"}
                   </span>
                   {activeModalItem.latestAiSuggestion && (
                     <Button

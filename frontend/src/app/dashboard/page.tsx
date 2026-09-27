@@ -107,14 +107,14 @@ function DashboardContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Güvenlik & Analiz Dashboard'u</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Güvenlik & Analiz Paneli</h1>
             <Badge variant="default" className="text-[11px] gap-1">
               <Sparkles className="h-3 w-3" />
-              <span>Canlı PostgreSQL Verileri</span>
+              <span>Canlı Analiz Durumu</span>
             </Badge>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Yapay zeka (Llama 3 8B RAG) tarafından gerçekleştirilen gerçek kod incelemeleri ve zafiyet istatistikleri
+            Yapay zeka modellerimiz tarafından gerçekleştirilen güvenlik incelemeleri ve hata dağılımları
           </p>
         </div>
       </div>
@@ -132,7 +132,7 @@ function DashboardContent() {
             </div>
             <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-1">
               <ArrowUpRight className="h-3 w-3" />
-              <span>Veritabanında kayıtlı</span>
+              <span>Başarıyla İncelendi</span>
             </p>
           </CardContent>
         </Card>
@@ -162,22 +162,22 @@ function DashboardContent() {
               {stats?.averageScore ?? 85.0}/100
             </div>
             <p className="text-[11px] text-zinc-400 mt-1">
-              AI Denetim Puanı
+              Genel Kod Sağlığı
             </p>
           </CardContent>
         </Card>
 
         <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-zinc-400">Model Motoru</CardTitle>
+            <CardTitle className="text-xs font-medium text-zinc-400">Aktif Model</CardTitle>
             <Cpu className="h-4 w-4 text-cyan-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-extrabold text-cyan-400 font-mono truncate">
-              {reportDetail?.modelUsed || "Llama 3 8B"}
+              {reportDetail?.modelUsed || "Yapay Zeka"}
             </div>
             <p className="text-[11px] text-cyan-300/80 mt-1">
-              Aktif Güvenlik Denetçisi
+              Güvenlik Denetçisi
             </p>
           </CardContent>
         </Card>
@@ -194,10 +194,10 @@ function DashboardContent() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">
-              {reportDetail ? `Analiz Raporu: ${reportDetail.fileName}` : "Kaynak Kod & AI Güvenlik İncelemesi"}
+              {reportDetail ? `Analiz Raporu: ${reportDetail.fileName}` : "Kaynak Kod & Güvenlik İncelemesi"}
             </h2>
             <p className="text-xs text-zinc-400">
-              {reportDetail ? "Yapay zekanın tespit ettiği satırlar ve refactor önerileri" : "Seçili dosyanın detaylı güvenlik analizi ve kod içeriği"}
+              {reportDetail ? "Yapay zekanın tespit ettiği satırlar ve çözüm önerileri" : "Seçili dosyanın detaylı güvenlik analizi ve kaynak kodu"}
             </p>
           </div>
           {reportDetail && (
@@ -258,7 +258,7 @@ function DashboardContent() {
             <div className="space-y-1.5 max-w-md">
               <h3 className="text-base font-semibold text-white">İncelenecek Kod Dosyası Seçilmedi</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Aşağıdaki <span className="text-zinc-200 font-medium">Geçmiş Analiz Raporları</span> tablosundan bir dosyanın yanındaki <span className="text-cyan-400 font-semibold">"İncele"</span> butonuna tıklayarak veya yeni bir dosya yükleyerek kod içeriğini ve Llama 3'ün güvenlik analiz raporunu burada detaylıca inceleyebilirsiniz.
+                Aşağıdaki <span className="text-zinc-200 font-medium">Geçmiş Analiz Raporları</span> tablosundan bir dosyanın yanındaki <span className="text-cyan-400 font-semibold">"İncele"</span> butonuna tıklayarak veya yeni bir dosya yükleyerek kod içeriğini ve yapay zekanın güvenlik analiz raporunu burada detaylıca inceleyebilirsiniz.
               </p>
             </div>
             <div className="flex items-center gap-3 pt-2">

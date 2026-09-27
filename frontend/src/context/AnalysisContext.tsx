@@ -235,14 +235,14 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
               ...prev.logs,
               {
                 id: Date.now() + 10,
-                prefix: "[SIGNALR]",
-                message: `'ReceiveAnalysisResult' sinyali alındı! (Doküman ID: ${fileId})`,
+                prefix: "[BİLDİRİM]",
+                message: `Yapay zeka analiz raporu oluşturuldu.`,
                 type: "system",
               },
               {
                 id: Date.now() + 11,
-                prefix: "[SUCCESS]",
-                message: `Analiz tamamlandı! [${modelUsed || "Llama 3"}] Tespit Edilen Kritiklik: ${severity || "Normal"}`,
+                prefix: "[TAMAMLANDI]",
+                message: `Analiz tamamlandı! [${modelUsed || "AI Denetçi"}] Tespit Edilen Durum: ${severity || "Normal"}`,
                 type: "success",
               },
             ],
@@ -290,11 +290,11 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
 
   // 4. Session Action Methods
   const startAnalysis = useCallback((fileName: string, selectedModel?: string) => {
-    const modelLabel = selectedModel || "Llama 3 (Yerel)"
+    const modelLabel = selectedModel || "Yapay Zeka"
     const initialLog: LogLine = {
       id: Date.now(),
-      prefix: "[HTTP POST]",
-      message: `${fileName} dosyası [${modelLabel}] motoruna aktarılıyor...`,
+      prefix: "[YÜKLENİYOR]",
+      message: `${fileName} dosyası sisteme aktarılıyor...`,
       type: "system",
     }
 
@@ -322,26 +322,26 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
         newLogs.push(
           {
             id: Date.now() + 1,
-            prefix: "[ZIP UNPACK]",
-            message: `'${batchInfo.projectName}' arşivinden ${batchInfo.totalExtractedFiles} adet kaynak kod dosyası başarıyla ayıklandı. (node_modules, bin ve ikili dosyalar filtrelendi)`,
+            prefix: "[ARŞİV AYIKLAMA]",
+            message: `'${batchInfo.projectName}' arşivinden ${batchInfo.totalExtractedFiles} adet kaynak kod dosyası başarıyla ayıklandı.`,
             type: "system",
           },
           {
             id: Date.now() + 2,
-            prefix: "[MINIO & DB]",
-            message: `Tüm dosyalar MinIO nesne deposuna kaydedildi ve PostgreSQL Proje ID (${batchInfo.projectId.slice(0, 8)}...) altına bağlandı.`,
+            prefix: "[GÜVENLİ AKTARIM]",
+            message: `Dosyalar analize hazırlandı ve güvenli depolama alanına kaydedildi.`,
             type: "system",
           },
           {
             id: Date.now() + 3,
-            prefix: "[KAFKA BATCH]",
-            message: `${batchInfo.totalExtractedFiles} adet 'file-uploads' olayı Kafka analiz kuyruğuna gönderildi.`,
+            prefix: "[İŞLEM SIRASI]",
+            message: `${batchInfo.totalExtractedFiles} dosya analiz kuyruğuna alındı.`,
             type: "kafka",
           },
           {
             id: Date.now() + 4,
-            prefix: "[WORKER / LLM]",
-            message: `Python AI Worker (Llama 3 8B RAG) dosyaları sırayla AST parçalama ve güvenlik taramasına aldı...`,
+            prefix: "[AI ANALİZ]",
+            message: `Yapay zeka denetçisi dosyaları sırayla güvenlik taramasına aldı...`,
             type: "ai",
           }
         )
@@ -349,20 +349,20 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
         newLogs.push(
           {
             id: Date.now() + 1,
-            prefix: "[MINIO & DB]",
-            message: `Dosya MinIO nesne depolama alanına ve PostgreSQL'e kaydedildi. (Doküman ID: ${documentId})`,
+            prefix: "[GÜVENLİ AKTARIM]",
+            message: `Dosya analize hazırlandı ve sisteme kaydedildi.`,
             type: "system",
           },
           {
             id: Date.now() + 2,
-            prefix: "[KAFKA]",
-            message: `'file-uploads' olay kuyruğuna mesaj fırlatıldı -> Python AI Worker tetiklendi.`,
+            prefix: "[İŞLEM SIRASI]",
+            message: `Analiz talebi oluşturuldu, yapay zeka denetçisi devrede.`,
             type: "kafka",
           },
           {
             id: Date.now() + 3,
-            prefix: "[WORKER / LLM]",
-            message: `Llama 3 8B RAG modeli PgVector embedding ve güvenlik analizi yapıyor...`,
+            prefix: "[AI ANALİZ]",
+            message: `Yapay zeka güvenlik analizi ve kod incelemesi yapıyor...`,
             type: "ai",
           }
         )

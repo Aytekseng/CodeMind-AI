@@ -19,7 +19,7 @@ interface ScoreData {
 }
 
 const defaultScores: ScoreData[] = [
-  { subject: "Güvenlik (Security)", score: 92, fullMark: 100 },
+  { subject: "Güvenlik", score: 92, fullMark: 100 },
   { subject: "Performans", score: 85, fullMark: 100 },
   { subject: "Mimari Uyum", score: 88, fullMark: 100 },
   { subject: "Okunabilirlik", score: 90, fullMark: 100 },
@@ -41,7 +41,7 @@ export function ScoreRadarChart({ scores = defaultScores }: { scores?: ScoreData
           </span>
         </div>
         <CardDescription className="text-xs">
-          Yapay zekanın kod mimarisi ve zafiyet analiz metrikleri dağılımı
+          Kodunuzun güvenlik, performans ve okunabilirlik boyutlarındaki genel değerlendirmesi
         </CardDescription>
       </CardHeader>
       <CardContent className="h-[280px] w-full pt-4">

@@ -143,10 +143,10 @@ export function CodeDiffViewer({
         <div className="shrink-0 border-b border-emerald-500/20 bg-emerald-500/5 px-5 py-2.5 flex items-center justify-between text-xs text-emerald-300">
           <span className="flex items-center gap-1.5 font-semibold text-emerald-200">
             <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-            Llama 3 8B Güvenlik Yaması & Zafiyet Detayı
+            Yapay Zeka Güvenlik Önerisi & Düzeltme Detayı
           </span>
           <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/40 text-emerald-300 bg-emerald-500/10">
-            RAG Analiz Çıktısı
+            Çözüm Önerisi
           </Badge>
         </div>
       )}
