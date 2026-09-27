@@ -6,6 +6,7 @@ using CodeMind.Api.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using CodeMind.Domain.Events;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CodeMind.Api.HostedServices;
 
@@ -30,6 +31,8 @@ public class AnalysisResultBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("AnalysisResultBackgroundService başlatıldı, 'analysis-results' kuyruğu dinleniyor...");
+
         try
         {
             await _messageConsumer.StartConsumingAsync<AnalysisCompletedEvent>(
@@ -40,7 +43,8 @@ public class AnalysisResultBackgroundService : BackgroundService
 
                     try
                     {
-                        Console.WriteLine($"\n[C# Consumer] Kafka'dan yeni analiz sonucu alındı! FileId: {eventData.FileId}");
+                        _logger.LogInformation("Kafka'dan yeni analiz sonucu alındı. FileId: {FileId}, Severity: {Severity}", 
+                            eventData.FileId, eventData.Severity);
 
                         using var scope = _scopeFactory.CreateScope();
                         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -67,7 +71,9 @@ public class AnalysisResultBackgroundService : BackgroundService
                         
                         dbContext.AnalysisReports.Add(report);
                         await dbContext.SaveChangesAsync(stoppingToken);
-                        Console.WriteLine($"[C# Consumer] Sonuç başarıyla DB'ye kaydedildi.");
+                        
+                        _logger.LogInformation("Analiz raporu veritabanına kaydedildi. ReportId: {ReportId}, DocumentId: {DocumentId}", 
+                            report.Id, eventData.FileId);
 
                         // 3. SignalR ile frontend'e anlık bildir (Dosya adı ve Proje ID'si ile zenginleştirildi)
                         await _hubContext.Clients.All.SendAsync(
@@ -79,23 +85,24 @@ public class AnalysisResultBackgroundService : BackgroundService
                             doc?.ProjectId.ToString() ?? "",
                             cancellationToken: stoppingToken
                         );
-                        Console.WriteLine($"[C# Consumer] Arayüze SignalR bildirim komutu verildi!");
+
+                        _logger.LogInformation("SignalR istemcilerine analiz tamamlandı bildirimi fırlatıldı. FileId: {FileId}, FileName: {FileName}", 
+                            eventData.FileId, doc?.FileName);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[C# Consumer Hata]: Analiz sonucu işlenirken hata oluştu: {ex.Message}");
+                        _logger.LogError(ex, "Kafka'dan alınan analiz sonucu işlenirken hata oluştu. FileId: {FileId}", eventData.FileId);
                     }
                 }, 
                 stoppingToken);
         }
         catch (OperationCanceledException)
         {
-            // Normal shutdown
+            _logger.LogInformation("AnalysisResultBackgroundService durduruluyor (CancellationRequested).");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "AnalysisResultBackgroundService beklenmedik bir hata ile karşılaştı.");
+            _logger.LogError(ex, "AnalysisResultBackgroundService beklenmedik kritik bir hata ile karşılaştı.");
         }
     }
 }
-

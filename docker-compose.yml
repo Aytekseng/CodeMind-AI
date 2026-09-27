@@ -72,7 +72,19 @@ services:
       - minio_data:/data
     restart: unless-stopped
 
+  seq:
+    image: datalust/seq:latest
+    container_name: codemind-seq
+    ports:
+      - "5341:80"
+    environment:
+      ACCEPT_EULA: "Y"
+    volumes:
+      - seq_data:/data
+    restart: unless-stopped
+
 volumes:
   pgdata:
   kafka_data:
   minio_data:
+  seq_data:

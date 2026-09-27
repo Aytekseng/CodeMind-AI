@@ -116,7 +116,15 @@ sequenceDiagram
 - Kafka `file-uploads` kuyruğuna `BatchId` ile fırlatma ve SignalR üzerinden anlık dosya adı/proje bildirimleri entegre edildi.
 - `LoadingTerminal`: Canlı çoklu dosya ilerleme çubuğu (`4/12 dosya - %33`) ve her dosya için zafiyet rozet akışı eklendi.
 - `FileTreeExplorer` & `Dashboard`: Çoklu dosya projelerinde sol tarafta dosya ağacı gezgini ve seçilen dosyanın diff/raporunu gösteren split-view layout'u devreye alındı.
-- `GlobalExceptionMiddleware` ile sunucu genelinde standart RFC 7807 hata yakalama sağlandı.
+### ✅ Aşama 9: Merkezi Loglama (Serilog, File, Console & Seq Entegrasyonu)
+- Serilog 10.0 altyapısı .NET 10 API üzerine entegre edildi.
+- Bootstrap logger ve Host logger yapılandırıldı (`appsettings.json`).
+- Konsola renkli ve okunaklı structured log akışı sağlandı.
+- Günlük rotasyonlu (Daily rolling) dosya loglama (`logs/codemind-.log`, 30 gün arşivleme, 10MB limit) aktif edildi.
+- `UseSerilogRequestLogging` ile gelen her HTTP isteği `HTTP GET /api/Document 200 in 12ms` formatında ve `UserId`, `TenantId`, `TraceId`, `RemoteIpAddress` metaverileriyle zenginleştirildi.
+- `GlobalExceptionMiddleware` hata logları structured formata dönüştürüldü; istemci hataları (400) ile kritik sunucu hataları (500) log seviyeleri ayrıştırıldı.
+- `AnalysisResultBackgroundService`, `KafkaProducer`, `KafkaConsumer` ve `DocumentService` içerisindeki tüm `Console.WriteLine` çağrıları `ILogger<T>` yapılandırılmış loglamaya dönüştürüldü.
+- `docker-compose.yml` dosyasına logları web arayüzünde sorgulamak için hafif ve modern **Seq** (`localhost:5341`) servisi eklendi.
 
 ---
 
@@ -128,8 +136,8 @@ sequenceDiagram
    - JWT token ile kullanıcı ve şirket bazlı (Multi-Tenancy) veri izolasyonu.
 2. **✅ Çoklu Dosya / Proje Arşivi (.ZIP) Yükleme Desteği [TAMAMLANDI]:**
    - Tekil dosya yerine tüm proje reposunun veya `.zip` arşivinin taranması, gürültü filtreleme, canlı progress bar ve dosya ağacı gezgini.
-3. **Merkezi Loglama (Serilog Entegrasyonu):**
-   - Serilog ile yapılandırılmış logların ElasticSearch veya dosyaya yazılması.
+3. **✅ Merkezi Loglama (Serilog Entegrasyonu) [TAMAMLANDI]:**
+   - Serilog ile yapılandırılmış logların Seq sunucusuna, dönen dosyalara (`logs/codemind-*.log`) ve renkli konsola yazılması.
 
 ### 🔵 Opsiyonel / İleri Düzey Vizyoner Eklentiler
 1. **Çoklu Model Desteği (Multi-LLM Switcher):**
@@ -138,4 +146,5 @@ sequenceDiagram
    - Dashboard'daki analiz raporunun kurumsal formatta PDF olarak indirilmesi.
 3. **GitHub / GitLab Webhook Entegrasyonu:**
    - Pull Request açıldığında otomatik kod denetimi yapıp PR altına yorum olarak rapor bırakma.
+
 

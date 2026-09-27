@@ -195,3 +195,29 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 * Next.js derlemesi (`npm run build`) Turbopack ile **0 hata** (9/9 sayfa).
 * .NET API derlemesi (`dotnet build`) **0 hata, 0 uyarı**.
 * Değişiklikler commitlendi, `main` dalına merge edildi ve GitHub'a pushlandı.
+
+---
+
+### 🚀 Aşama 9: Merkezi Loglama (Serilog, File, Console & Seq Entegrasyonu)
+* **Tarih:** 27 Eylül 2026
+* **Çalışılan Dal (Branch):** `feature/centralized-logging`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Paket Yapılandırması (.NET 10):**
+   * `Serilog.AspNetCore` (10.0.0), `Serilog.Sinks.Seq` (9.1.0), `Serilog.Enrichers.Environment` (3.0.1), `Serilog.Enrichers.Process` (3.0.0), `Serilog.Enrichers.Thread` (4.0.0) paketleri yüklendi.
+2. **Serilog Pipeline & Enrichers (`Program.cs` & `appsettings.json`):**
+   * Bootstrap Logger ile erken açılış logları güvenceye alındı; `appsettings.json` üzerinden dinamik log seviyeleri (`Microsoft` uyarı seviyesine çekildi) yapılandırıldı.
+   * `FromLogContext`, `WithMachineName`, `WithEnvironmentName`, `WithProcessId`, `WithThreadId` zenginleştiricileri bağlandı.
+   * Günlük rotasyonlu dosya loglaması (`logs/codemind-.log`, 30 gün arşivleme, 10MB limit) ve renkli konsol çıktısı yapılandırıldı.
+3. **HTTP İstek/Yanıt Tanılaması & Exception Middleware:**
+   * `UseSerilogRequestLogging` ile gelen her HTTP isteğine `UserId`, `TenantId`, `UserEmail`, `RemoteIpAddress`, `ElapsedMilliseconds` metaverileri eklendi.
+   * `GlobalExceptionMiddleware.cs` güncellendi; 400 istemci hataları `Warning`, 500 beklenmeyen hatalar `Error` seviyesinde structured context ile kaydedildi.
+4. **Altyapı Servisleri Structured Log Refactor:**
+   * `AnalysisResultBackgroundService`, `KafkaProducer`, `KafkaConsumer` ve `DocumentService` içerisindeki tüm ilkel `Console.WriteLine` çağrıları `ILogger<T>` structured loglama metotlarına dönüştürüldü.
+5. **Seq Merkezi Log Sunucusu (`docker-compose.yml`):**
+   * `datalust/seq:latest` servisi docker-compose'a eklendi (`http://localhost:5341`), `seq_data` hacmi tanımlandı.
+
+#### 🧪 Doğrulama ve Test
+* .NET API derlemesi (`dotnet build`) **0 hata, 0 uyarı**.
+* API başlatılarak `logs/codemind-20260927.log` dosyasının structured JSON metaverileriyle başarıyla oluştuğu doğrulandı.

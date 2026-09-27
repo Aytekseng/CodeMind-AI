@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -27,7 +28,24 @@ public class GlobalExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Beklenmeyen bir sunucu hatası oluştu: {Message}", ex.Message);
+            var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Anonymous";
+            var tenantId = context.User?.FindFirst("TenantId")?.Value ?? "None";
+            var path = context.Request.Path.Value;
+            var method = context.Request.Method;
+
+            if (ex is BadHttpRequestException or ArgumentException or InvalidOperationException or KeyNotFoundException)
+            {
+                _logger.LogWarning(ex, 
+                    "İstemci hatası oluştu: {ErrorMessage} | Yol: {Method} {Path} | UserId: {UserId} | TenantId: {TenantId}", 
+                    ex.Message, method, path, userId, tenantId);
+            }
+            else
+            {
+                _logger.LogError(ex, 
+                    "Kritik sunucu hatası meydana geldi: {ErrorMessage} | Yol: {Method} {Path} | UserId: {UserId} | TenantId: {TenantId}", 
+                    ex.Message, method, path, userId, tenantId);
+            }
+
             await HandleExceptionAsync(context, ex);
         }
     }

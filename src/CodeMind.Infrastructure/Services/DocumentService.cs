@@ -10,6 +10,7 @@ using CodeMind.Domain.Enums;
 using CodeMind.Domain.Interfaces;
 using CodeMind.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CodeMind.Infrastructure.Services;
 
@@ -32,17 +33,20 @@ public class DocumentService : IDocumentService
     private readonly IMessageProducer _kafkaProducer;
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILogger<DocumentService> _logger;
 
     public DocumentService(
         IMinIOService minIOService,
         IMessageProducer kafkaProducer,
         AppDbContext dbContext,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ILogger<DocumentService> logger)
     {
         _minIOService = minIOService;
         _kafkaProducer = kafkaProducer;
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType)
@@ -111,8 +115,8 @@ public class DocumentService : IDocumentService
             };
 
             await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            Console.WriteLine($"[DocumentService] Dosya MinIO'ya yüklendi ve Kafka kuyruğuna atıldı. ID: {document.Id} | User ID: {eventMessage.UploadedByUserId}");
-
+            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı. DocumentId: {DocumentId}, FileName: {FileName}, UserId: {UserId}, TenantId: {TenantId}", 
+                document.Id, fileName, eventMessage.UploadedByUserId, eventMessage.TenantId);
 
             // 4. Standart ApiResponse formatında dön
             var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
@@ -120,7 +124,7 @@ public class DocumentService : IDocumentService
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[DocumentService Hata] {ex.Message} -> {ex.StackTrace}");
+            _logger.LogError(ex, "Dosya yüklenirken veya kuyruğa atılırken hata oluştu. FileName: {FileName}", fileName);
             return ApiResponse<object>.Fail(ex.Message, "Dosya yüklenirken veya kuyruğa atılırken bir hata oluştu.");
         }
     }
@@ -258,7 +262,8 @@ public class DocumentService : IDocumentService
 
             await _dbContext.SaveChangesAsync();
 
-            Console.WriteLine($"[DocumentService] {validEntries.Count} dosya içeren '{projectName}' arşivi MinIO'ya ve Kafka kuyruğuna aktarıldı. BatchId: {batchId}");
+            _logger.LogInformation("{Count} adet kod dosyası içeren '{ProjectName}' arşivi MinIO'ya ve Kafka kuyruğuna aktarıldı. BatchId: {BatchId}, ProjectId: {ProjectId}", 
+                validEntries.Count, projectName, batchId, project.Id);
 
             var responseDto = new ZipUploadResponseDto
             {
@@ -277,7 +282,7 @@ public class DocumentService : IDocumentService
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[DocumentService Zip Hata] {ex.Message} -> {ex.StackTrace}");
+            _logger.LogError(ex, "ZIP arşivi işlenirken veya kuyruğa aktarılırken hata oluştu. ArchiveName: {ArchiveName}", archiveName);
             return ApiResponse<ZipUploadResponseDto>.Fail(ex.Message, "Arşiv işlenirken veya kuyruğa aktarılırken bir hata oluştu.");
         }
     }

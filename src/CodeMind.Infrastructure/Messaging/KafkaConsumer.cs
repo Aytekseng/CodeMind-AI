@@ -2,16 +2,19 @@ using System.Text.Json;
 using Confluent.Kafka;
 using CodeMind.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace CodeMind.Infrastructure.Messaging;
 
 public class KafkaConsumer : IMessageConsumer
 {
     private readonly IConfiguration _config;
+    private readonly ILogger<KafkaConsumer> _logger;
 
-    public KafkaConsumer(IConfiguration config)
+    public KafkaConsumer(IConfiguration config, ILogger<KafkaConsumer> logger)
     {
         _config = config;
+        _logger = logger;
     }
 
     public async Task StartConsumingAsync<T>(string topic, Func<T, Task> onMessageReceived, CancellationToken cancellationToken)
@@ -38,6 +41,7 @@ public class KafkaConsumer : IMessageConsumer
             {
                 using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
                 consumer.Subscribe(topic);
+                _logger.LogInformation("Kafka tüketici '{Topic}' konusuna başarıyla abone oldu.", topic);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -57,7 +61,7 @@ public class KafkaConsumer : IMessageConsumer
                     }
                     catch (ConsumeException e)
                     {
-                        Console.WriteLine($"[KafkaConsumer Uyarı]: {e.Error.Reason}");
+                        _logger.LogWarning("Kafka tüketim uyarısı: {Reason}", e.Error.Reason);
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             await Task.Delay(2000, CancellationToken.None);
@@ -69,7 +73,7 @@ public class KafkaConsumer : IMessageConsumer
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[KafkaConsumer Hata]: {ex.Message}");
+                        _logger.LogError(ex, "Kafka mesajı işlenirken hata oluştu.");
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             await Task.Delay(2000, CancellationToken.None);
@@ -84,9 +88,8 @@ public class KafkaConsumer : IMessageConsumer
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[KafkaConsumer Fatal]: {ex.Message}");
+                _logger.LogCritical(ex, "Kafka tüketici döngüsünde kritik hata.");
             }
         }, cancellationToken);
     }
 }
-
