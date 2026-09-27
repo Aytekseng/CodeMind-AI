@@ -141,8 +141,9 @@ export function DragDropArea() {
     startAnalysis(selectedFile.name, selectedModel)
 
     try {
-      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${selectedModel})`)
-      const response = await uploadDocumentAsync(selectedFile, selectedModel, apiKey.trim() || undefined)
+      const effectiveApiKey = modelObj?.requiresApiKey ? (apiKey.trim() || undefined) : undefined
+      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${selectedModel}, HasKey: ${Boolean(effectiveApiKey)})`)
+      const response = await uploadDocumentAsync(selectedFile, selectedModel, effectiveApiKey)
       console.log("[DragDropArea] API Yanıtı:", response)
 
       if (response && response.isSuccess) {

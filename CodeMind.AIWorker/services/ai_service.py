@@ -206,7 +206,10 @@ def process_uploaded_file(event_data: FileUploadedEvent):
     tenant_id = event_data.tenant_id or "Bilinmiyor"
     model_name = event_data.model or "llama3"
     key_token = event_data.key_token
-    custom_api_key = resolve_ephemeral_api_key(key_token) if key_token else ""
+
+    # Yerel modeller (Llama, Qwen) asla key token aramaz ve tüketmeye çalışmaz
+    is_local_model = any(loc in (model_name or "").lower() for loc in ["llama", "qwen", "local", "ollama"])
+    custom_api_key = resolve_ephemeral_api_key(key_token) if (key_token and not is_local_model) else ""
 
     print(f"\n[AI Service] 📥 {file_name} dosyası MinIO'dan indiriliyor... (Kullanıcı ID: {user_id} | Şirket ID: {tenant_id} | Model: {model_name})")
 
@@ -308,8 +311,17 @@ Doğrudan Türkçe teknik rapora odaklan."""
             )
             send_analysis_result(result_event)
     except Exception as e:
-        error_msg = f"Model analizi sırasında hata oluştu: {str(e)}"
-        print(f"[AI Service] ❌ {error_msg}")
-        send_analysis_failure(file_id, str(e), model_name)
+        err_str = str(e)
+        if "not found" in err_str.lower() and "qwen" in err_str.lower():
+            friendly_err = "Yerel Ollama üzerinde 'qwen2.5-coder:7b' modeli yüklü değil. Terminalinizde 'ollama run qwen2.5-coder:7b' çalıştırarak modeli indirin veya Ayarlar sayfasından hazır olan 'Llama 3' modelini seçin."
+        elif "not found" in err_str.lower() and "llama" in err_str.lower():
+            friendly_err = "Yerel Ollama üzerinde 'llama3' modeli yüklü değil. Terminalinizde 'ollama run llama3' çalıştırarak modeli indirin."
+        elif "connection refused" in err_str.lower() or "11434" in err_str:
+            friendly_err = "Ollama servisine bağlanılamadı. Lütfen Ollama uygulamasının arka planda çalıştığından emin olun."
+        else:
+            friendly_err = f"Yapay zeka analiz hatası: {err_str}"
+
+        print(f"[AI Service] ❌ {friendly_err}")
+        send_analysis_failure(file_id, friendly_err, model_name)
 
     print("[AI Service] İşlem tamamlandı!\n")

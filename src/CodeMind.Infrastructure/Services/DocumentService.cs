@@ -107,8 +107,9 @@ public class DocumentService : IDocumentService
             _dbContext.Documents.Add(document);
             await _dbContext.SaveChangesAsync();
 
-            // 3. Ephemeral In-Memory Token Vault: API anahtarı sadece RAM'e alınıp bilet üretilir, Kafka'ya asla açık key yazılmaz!
-            string? keyToken = !string.IsNullOrWhiteSpace(apiKey)
+            // 3. Ephemeral In-Memory Token Vault: Yalnızca bulut modeller için bilet üretilir, yerel modellerde (llama, qwen) anahtar aranmaz
+            var isLocalModel = model != null && (model.Contains("llama", StringComparison.OrdinalIgnoreCase) || model.Contains("qwen", StringComparison.OrdinalIgnoreCase));
+            string? keyToken = !string.IsNullOrWhiteSpace(apiKey) && !isLocalModel
                 ? _tempKeyVaultService.StoreKey(apiKey)
                 : null;
 
@@ -229,8 +230,9 @@ public class DocumentService : IDocumentService
             var extractedNames = new List<string>();
             var documentIds = new List<Guid>();
 
-            // Ephemeral In-Memory Token Vault: Tüm zip paketi için tek bir bilet üretilir (5 dk TTL)
-            string? zipKeyToken = !string.IsNullOrWhiteSpace(apiKey)
+            // Ephemeral In-Memory Token Vault: Yalnızca bulut modeller için tek bir bilet üretilir (5 dk TTL)
+            var isLocalZipModel = model != null && (model.Contains("llama", StringComparison.OrdinalIgnoreCase) || model.Contains("qwen", StringComparison.OrdinalIgnoreCase));
+            string? zipKeyToken = !string.IsNullOrWhiteSpace(apiKey) && !isLocalZipModel
                 ? _tempKeyVaultService.StoreKey(apiKey, TimeSpan.FromMinutes(5))
                 : null;
 
