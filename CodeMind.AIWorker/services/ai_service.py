@@ -4,6 +4,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_postgres import PGVector
 from langchain_core.documents import Document
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from schemas.events import FileUploadedEvent, AnalysisCompletedEvent
 from core.config import settings
@@ -33,6 +34,56 @@ def get_vector_store():
     )
 
     return vector_store
+
+def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
+    """
+    Kullanıcının seçtiği modele göre (Llama 3, GPT-4o, Claude 3.5 Sonnet) uygun LangChain ChatModel nesnesini döndürür.
+    """
+    model_lower = (model_name or "llama3").lower().strip()
+
+    # 1. OpenAI GPT-4o / GPT-4o-mini
+    if "gpt" in model_lower or "openai" in model_lower:
+        from langchain_openai import ChatOpenAI
+        key = custom_api_key or settings.OPENAI_API_KEY
+        if not key:
+            raise ValueError("OpenAI modelleri için API anahtarı gereklidir. Lütfen geçerli bir OpenAI API Key girin.")
+        
+        target_model = "gpt-4o" if "gpt-4o" in model_lower else "gpt-4o-mini"
+        print(f"[AI Service] ⚡ OpenAI ({target_model}) modeli başlatılıyor...")
+        return ChatOpenAI(
+            model=target_model,
+            api_key=key,
+            temperature=0.2
+        ), f"OpenAI {target_model.upper()}"
+
+    # 2. Anthropic Claude 3.5 Sonnet
+    elif "claude" in model_lower or "anthropic" in model_lower:
+        from langchain_anthropic import ChatAnthropic
+        key = custom_api_key or settings.ANTHROPIC_API_KEY
+        if not key:
+            raise ValueError("Claude modeli için API anahtarı gereklidir. Lütfen geçerli bir Anthropic API Key girin.")
+        
+        print("[AI Service] 🧠 Anthropic Claude 3.5 Sonnet modeli başlatılıyor...")
+        return ChatAnthropic(
+            model="claude-3-5-sonnet-20241022",
+            api_key=key,
+            temperature=0.2
+        ), "Claude 3.5 Sonnet"
+
+    # 3. Varsayılan / Yerel: Ollama Llama 3
+    else:
+        print(f"[AI Service] 🦙 Yerel Ollama Llama 3 ({settings.OLLAMA_LLM_MODEL}) modeli başlatılıyor...")
+        return ChatOllama(
+            model=settings.OLLAMA_LLM_MODEL,
+            base_url=settings.OLLAMA_BASE_URL,
+            num_ctx=settings.OLLAMA_NUM_CTX,
+            num_gpu=settings.OLLAMA_NUM_GPU,
+            temperature=0.2,
+            top_p=0.9,
+            repeat_penalty=1.20,
+            repeat_last_n=256,
+            stop=["<|eot_id|>", "<|end_of_text|>"]
+        ), "Llama 3 (Yerel)"
 
 def extract_severity(response_text: str) -> str:
     """
@@ -77,8 +128,10 @@ def process_uploaded_file(event_data: FileUploadedEvent):
 
     user_id = event_data.user_id or "Bilinmiyor"
     tenant_id = event_data.tenant_id or "Bilinmiyor"
+    model_name = event_data.model or "llama3"
+    api_key = event_data.api_key or ""
 
-    print(f"\n[AI Service] 📥 {file_name} dosyası MinIO'dan indiriliyor... (Kullanıcı ID: {user_id} | Şirket ID: {tenant_id})")
+    print(f"\n[AI Service] 📥 {file_name} dosyası MinIO'dan indiriliyor... (Kullanıcı ID: {user_id} | Şirket ID: {tenant_id} | Model: {model_name})")
 
     # 1. Gerçek dosyayı MinIO'dan çek.
     try:
@@ -118,19 +171,8 @@ def process_uploaded_file(event_data: FileUploadedEvent):
         if docs:
             context = "\n\n".join([doc.page_content for doc in docs])
             
-            # Büyük projeler ve geniş analizler için dinamik ve tekrarsız LLM parametreleri
-            llm = ChatOllama(
-                model=settings.OLLAMA_LLM_MODEL,
-                base_url=settings.OLLAMA_BASE_URL,
-                num_ctx=settings.OLLAMA_NUM_CTX,
-                num_gpu=settings.OLLAMA_NUM_GPU,
-                temperature=0.2,
-                top_p=0.9,
-                repeat_penalty=1.20,
-                repeat_last_n=256,
-                stop=["<|eot_id|>", "<|end_of_text|>"]
-            )
-            from langchain_core.messages import SystemMessage, HumanMessage
+            # Dinamik Çoklu Model Yükleyici (Llama 3 / GPT-4o / Claude 3.5 Sonnet)
+            llm, model_display_name = get_llm_instance(model_name, api_key)
             
             system_prompt = f"""Sen uzman bir Kıdemli Yazılım Mimarı ve Siber Güvenlik Baş Denetçisisin.
 Şu anda bir {detected_language} kaynak kod dosyasını inceliyorsun.
@@ -168,20 +210,33 @@ Doğrudan Türkçe teknik rapora odaklan."""
                 HumanMessage(content=f"İncelenecek {detected_language} Dosyası ({file_name}):\n```\n{context}\n```\n\nÖNEMLİ TALİMAT: Kod bloğu yazmadan, bu {detected_language} kodundaki tüm açıkları ve yapılması gereken adımları KESİNLİKLE VE TAMAMEN TÜRKÇE olarak yukarıdaki şablonda açıkla.")
             ]
             
-            print(f"[AI Service] {detected_language} dosyası için kodsuz, açıklayıcı ve %100 Türkçe analiz yapılıyor (Llama 3)...")
+            print(f"[AI Service] {detected_language} dosyası için {model_display_name} ile kodsuz, açıklayıcı ve %100 Türkçe analiz yapılıyor...")
 
             response = llm.invoke(messages)
             raw_content = response.content
-            print(f"\nAI Cevabı:\n{raw_content}")
+            print(f"\nAI Cevabı ({model_display_name}):\n{raw_content}")
 
             # Dinamik Zafiyet Düzeyi Tespiti
             detected_severity = extract_severity(raw_content)
-            print(f"[AI Service] 🎯 Tespit Edilen Zafiyet Düzeyi: {detected_severity}")
+            print(f"[AI Service] 🎯 Tespit Edilen Zafiyet Düzeyi: {detected_severity} (Model: {model_display_name})")
             
             # Analiz Bitti -> Sonucu Kafka'ya Geri Gönder
-            result_event = AnalysisCompletedEvent(FileId=file_id, Severity=detected_severity, AiSuggestion=raw_content)
+            result_event = AnalysisCompletedEvent(
+                FileId=file_id, 
+                Severity=detected_severity, 
+                AiSuggestion=raw_content,
+                ModelUsed=model_display_name
+            )
             send_analysis_result(result_event)
     except Exception as e:
-        print(f"[AI Service] Hata oluştu: {str(e)}")
+        error_msg = f"Model analizi sırasında hata oluştu: {str(e)}"
+        print(f"[AI Service] ❌ {error_msg}")
+        result_event = AnalysisCompletedEvent(
+            FileId=file_id,
+            Severity="Orta",
+            AiSuggestion=f"[ZAFİYET_DÜZEYİ: Orta]\n\n### 1. ⚠️ Model Analiz Hatası\n{error_msg}\n\nLütfen seçtiğiniz model ({model_name}) için sağlanan API anahtarını veya ağ bağlantınızı kontrol edin.",
+            ModelUsed=model_name
+        )
+        send_analysis_result(result_event)
 
     print("[AI Service] İşlem tamamlandı!\n")

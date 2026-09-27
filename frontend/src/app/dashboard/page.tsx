@@ -173,7 +173,9 @@ function DashboardContent() {
             <Cpu className="h-4 w-4 text-cyan-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-extrabold text-cyan-400 font-mono">Llama 3 8B</div>
+            <div className="text-2xl font-extrabold text-cyan-400 font-mono truncate">
+              {reportDetail?.modelUsed || "Llama 3 8B"}
+            </div>
             <p className="text-[11px] text-cyan-300/80 mt-1">
               RAG & PgVector Entegre
             </p>
@@ -232,6 +234,7 @@ function DashboardContent() {
                   vulnerableLines={reportDetail.vulnerableLines}
                   vulnerabilityTitle={reportDetail.severity}
                   vulnerabilityDescription={reportDetail.aiSuggestion}
+                  modelUsed={reportDetail.modelUsed}
                 />
               </div>
             </div>
@@ -244,6 +247,7 @@ function DashboardContent() {
               vulnerableLines={reportDetail.vulnerableLines}
               vulnerabilityTitle={reportDetail.severity}
               vulnerabilityDescription={reportDetail.aiSuggestion}
+              modelUsed={reportDetail.modelUsed}
             />
           )
         ) : (

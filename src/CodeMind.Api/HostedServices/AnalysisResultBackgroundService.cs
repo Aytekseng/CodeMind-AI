@@ -66,16 +66,17 @@ public class AnalysisResultBackgroundService : BackgroundService
                             Id = Guid.NewGuid(),
                             DocumentId = eventData.FileId,
                             Severity = eventData.Severity ?? "Medium",
-                            AiSuggestion = eventData.AiSuggestion ?? "Analiz tamamlandı."
+                            AiSuggestion = eventData.AiSuggestion ?? "Analiz tamamlandı.",
+                            ModelUsed = eventData.ModelUsed ?? "Llama 3"
                         };
                         
                         dbContext.AnalysisReports.Add(report);
                         await dbContext.SaveChangesAsync(stoppingToken);
                         
-                        _logger.LogInformation("Analiz raporu veritabanına kaydedildi. ReportId: {ReportId}, DocumentId: {DocumentId}", 
-                            report.Id, eventData.FileId);
+                        _logger.LogInformation("Analiz raporu veritabanına kaydedildi. ReportId: {ReportId}, DocumentId: {DocumentId}, Model: {ModelUsed}", 
+                            report.Id, eventData.FileId, report.ModelUsed);
 
-                        // 3. SignalR ile frontend'e anlık bildir (Dosya adı ve Proje ID'si ile zenginleştirildi)
+                        // 3. SignalR ile frontend'e anlık bildir (Dosya adı, Proje ID'si ve Kullanılan Model ile zenginleştirildi)
                         await _hubContext.Clients.All.SendAsync(
                             "ReceiveAnalysisResult",
                             eventData.FileId.ToString(),
@@ -83,11 +84,12 @@ public class AnalysisResultBackgroundService : BackgroundService
                             eventData.AiSuggestion ?? "",
                             doc?.FileName ?? "",
                             doc?.ProjectId.ToString() ?? "",
+                            eventData.ModelUsed ?? "Llama 3",
                             cancellationToken: stoppingToken
                         );
 
-                        _logger.LogInformation("SignalR istemcilerine analiz tamamlandı bildirimi fırlatıldı. FileId: {FileId}, FileName: {FileName}", 
-                            eventData.FileId, doc?.FileName);
+                        _logger.LogInformation("SignalR istemcilerine analiz tamamlandı bildirimi fırlatıldı. FileId: {FileId}, FileName: {FileName}, Model: {ModelUsed}", 
+                            eventData.FileId, doc?.FileName, eventData.ModelUsed);
                     }
                     catch (Exception ex)
                     {

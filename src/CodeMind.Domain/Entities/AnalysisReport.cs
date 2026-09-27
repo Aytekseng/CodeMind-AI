@@ -1,3 +1,5 @@
+using System;
+
 namespace CodeMind.Domain.Entities;
 
 // Yapay zeka servisinden (AI Worker) dönen analiz ve güvenlik denetimi sonuçlarını temsil eder.
@@ -17,6 +19,9 @@ public class AnalysisReport : BaseEntity
     
     // Analiz edilen kod parçasının orijinal hali
     public string OriginalCode { get; set; } = string.Empty;
+
+    // Analizi gerçekleştiren LLM modeli (Örn: Llama 3, OpenAI GPT-4O, Claude 3.5 Sonnet)
+    public string? ModelUsed { get; set; } = "Llama 3";
 
     // Analiz raporunun ait olduğu Doküman varlığı (N-1)
     public Document Document { get; set; } = null!;

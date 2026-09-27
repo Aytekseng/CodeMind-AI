@@ -49,7 +49,7 @@ public class DocumentService : IDocumentService
         _logger = logger;
     }
 
-    public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType)
+    public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType, string? model = "llama3", string? apiKey = null)
     {
         try
         {
@@ -111,12 +111,14 @@ public class DocumentService : IDocumentService
                 FileName = fileName,
                 ObjectKey = savedObjectName,
                 UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
-                TenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId.ToString() : tenant.Id.ToString()
+                TenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId.ToString() : tenant.Id.ToString(),
+                Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
+                ApiKey = apiKey ?? ""
             };
 
             await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı. DocumentId: {DocumentId}, FileName: {FileName}, UserId: {UserId}, TenantId: {TenantId}", 
-                document.Id, fileName, eventMessage.UploadedByUserId, eventMessage.TenantId);
+            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı. DocumentId: {DocumentId}, FileName: {FileName}, Model: {Model}, UserId: {UserId}", 
+                document.Id, fileName, eventMessage.Model, eventMessage.UploadedByUserId);
 
             // 4. Standart ApiResponse formatında dön
             var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
@@ -129,7 +131,7 @@ public class DocumentService : IDocumentService
         }
     }
 
-    public async Task<ApiResponse<ZipUploadResponseDto>> UploadAndQueueZipAsync(Stream zipStream, string archiveName)
+    public async Task<ApiResponse<ZipUploadResponseDto>> UploadAndQueueZipAsync(Stream zipStream, string archiveName, string? model = "llama3", string? apiKey = null)
     {
         try
         {
@@ -254,7 +256,9 @@ public class DocumentService : IDocumentService
                     BatchId = batchId,
                     BatchTotal = validEntries.Count,
                     BatchIndex = i + 1,
-                    ProjectId = project.Id.ToString()
+                    ProjectId = project.Id.ToString(),
+                    Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
+                    ApiKey = apiKey ?? ""
                 };
 
                 await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
@@ -325,7 +329,8 @@ public class DocumentService : IDocumentService
                     FindingsCount = d.AnalysisReports.Count,
                     LatestAiSuggestion = latestReport?.AiSuggestion,
                     ProjectId = d.ProjectId,
-                    ProjectName = d.Project?.Name
+                    ProjectName = d.Project?.Name,
+                    ModelUsed = latestReport?.ModelUsed ?? "Llama 3"
                 };
             }).ToList();
 
@@ -368,7 +373,8 @@ public class DocumentService : IDocumentService
                     Language = GetLanguageFromFileName(d.FileName),
                     Status = d.Status.ToString(),
                     Severity = report?.Severity ?? "İnceleniyor",
-                    Score = CalculateScoreFromSeverity(report?.Severity)
+                    Score = CalculateScoreFromSeverity(report?.Severity),
+                    ModelUsed = report?.ModelUsed ?? "Llama 3"
                 };
             }).ToList();
 
@@ -424,6 +430,7 @@ public class DocumentService : IDocumentService
                 OriginalCode = originalFileContent,
                 ProjectId = document.ProjectId,
                 ProjectName = document.Project?.Name,
+                ModelUsed = latestReport?.ModelUsed ?? "Llama 3",
                 VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
                     ? new List<int> { latestReport.LineNumber } 
                     : new List<int>()

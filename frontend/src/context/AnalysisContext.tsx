@@ -10,6 +10,7 @@ export interface AnalysisResultEvent {
   aiSuggestion: string
   fileName?: string
   projectId?: string
+  modelUsed?: string
   timestamp: Date
 }
 
@@ -35,10 +36,12 @@ export interface CompletedFileInfo {
   severity: string
   aiSuggestion: string
   fileName?: string
+  modelUsed?: string
 }
 
 export interface AnalysisSessionState {
   fileName: string | null
+  selectedModel?: string
   isAnalyzing: boolean
   isUploading: boolean
   uploadSuccess: boolean
@@ -74,7 +77,7 @@ interface AnalysisContextType {
 
   // Terminal Session State
   session: AnalysisSessionState
-  startAnalysis: (fileName: string) => void
+  startAnalysis: (fileName: string, selectedModel?: string) => void
   setUploadSuccess: (documentId: string | null, batchInfo: BatchUploadInfo | null) => void
   setUploadError: (errorMessage: string) => void
   resetAnalysis: () => void
@@ -159,14 +162,15 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
 
     connectionRef.current = connection
 
-    connection.on("ReceiveAnalysisResult", (fileId: string, severity: string, aiSuggestion: string, fileName?: string, projectId?: string) => {
-      console.log("[SignalR Global] Sonuç alındı:", { fileId, severity, fileName, projectId })
+    connection.on("ReceiveAnalysisResult", (fileId: string, severity: string, aiSuggestion: string, fileName?: string, projectId?: string, modelUsed?: string) => {
+      console.log("[SignalR Global] Sonuç alındı:", { fileId, severity, fileName, projectId, modelUsed })
       const event: AnalysisResultEvent = {
         fileId,
         severity,
         aiSuggestion,
         fileName,
         projectId,
+        modelUsed: modelUsed || "Llama 3",
         timestamp: new Date(),
       }
 
@@ -187,7 +191,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
             if (isBatchFile) {
               const updatedCompleted = {
                 ...prev.completedFiles,
-                [fileId]: { severity, aiSuggestion, fileName }
+                [fileId]: { severity, aiSuggestion, fileName, modelUsed: modelUsed || "Llama 3" }
               }
               const count = Object.keys(updatedCompleted).length
               const fileTitle = fileName ? fileName.split("/").pop() : fileId.slice(0, 8)
@@ -198,7 +202,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
                 {
                   id: Date.now() + Math.random(),
                   prefix: `[${count}/${prev.batchInfo.totalExtractedFiles}]`,
-                  message: `${fileTitle} analizi tamamlandı! Sonuç: ${severity || "Normal"}`,
+                  message: `${fileTitle} analizi tamamlandı! [${modelUsed || "Llama 3"}] Sonuç: ${severity || "Normal"}`,
                   type: severity?.toLowerCase().includes("kritik") ? "error" : "success",
                 },
               ]
@@ -238,7 +242,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
               {
                 id: Date.now() + 11,
                 prefix: "[SUCCESS]",
-                message: `Analiz tamamlandı! Tespit Edilen Kritiklik: ${severity || "Normal"}`,
+                message: `Analiz tamamlandı! [${modelUsed || "Llama 3"}] Tespit Edilen Kritiklik: ${severity || "Normal"}`,
                 type: "success",
               },
             ],
@@ -285,16 +289,18 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
   }, [showResultToast])
 
   // 4. Session Action Methods
-  const startAnalysis = useCallback((fileName: string) => {
+  const startAnalysis = useCallback((fileName: string, selectedModel?: string) => {
+    const modelLabel = selectedModel || "Llama 3 (Yerel)"
     const initialLog: LogLine = {
       id: Date.now(),
       prefix: "[HTTP POST]",
-      message: `${fileName} dosyası .NET Web API (/api/Document/upload) sunucusuna aktarılıyor...`,
+      message: `${fileName} dosyası [${modelLabel}] motoruna aktarılıyor...`,
       type: "system",
     }
 
     setSession({
       fileName,
+      selectedModel: modelLabel,
       isAnalyzing: true,
       isUploading: true,
       uploadSuccess: false,

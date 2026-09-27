@@ -3,6 +3,9 @@ langchain
 langchain-text-splitters
 langchain-community
 langchain-postgres
+langchain-ollama
+langchain-openai
+langchain-anthropic
 psycopg[binary,pool]
 pydantic
 pydantic-settings

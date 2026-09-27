@@ -210,6 +210,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
               <tr>
                 <th className="px-5 py-3">Dosya Adı</th>
                 <th className="px-5 py-3">Dil</th>
+                <th className="px-5 py-3">Model</th>
                 <th className="px-5 py-3">Tarih</th>
                 <th className="px-5 py-3">Zafiyet Düzeyi</th>
                 <th className="px-5 py-3">Skor</th>
@@ -224,6 +225,11 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                     <span className="font-mono text-xs">{item.fileName || "Belirsiz Dosya"}</span>
                   </td>
                   <td className="px-5 py-3.5 text-zinc-400">{item.language || "Code"}</td>
+                  <td className="px-5 py-3.5">
+                    <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-mono border bg-cyan-950/30 text-cyan-300 border-cyan-500/20">
+                      {item.modelUsed?.includes("Claude") ? "🧠" : item.modelUsed?.includes("GPT") ? "⚡" : "🦙"} {item.modelUsed || "Llama 3"}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5 text-zinc-400">{formatDate(item.createdAt)}</td>
                   <td className="px-5 py-3.5">{getSeverityBadge(item.severity)}</td>
                   <td className="px-5 py-3.5">
@@ -294,7 +300,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-white flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                    Llama 3 AI Analiz Raporu:
+                    {activeModalItem.modelUsed || "Llama 3"} AI Analiz Raporu:
                   </span>
                   {activeModalItem.latestAiSuggestion && (
                     <Button

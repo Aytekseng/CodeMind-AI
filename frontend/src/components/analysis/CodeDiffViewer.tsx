@@ -15,6 +15,7 @@ interface CodeDiffViewerProps {
   vulnerableLines?: number[]
   vulnerabilityTitle?: string
   vulnerabilityDescription?: string
+  modelUsed?: string
 }
 
 export function CodeDiffViewer({
@@ -25,6 +26,7 @@ export function CodeDiffViewer({
   vulnerableLines = [],
   vulnerabilityTitle = "Güvenlik İncelemesi",
   vulnerabilityDescription = "",
+  modelUsed,
 }: CodeDiffViewerProps) {
   const [activeTab, setActiveTab] = React.useState<"original" | "fixed">("original")
   const [copied, setCopied] = React.useState<boolean>(false)
@@ -68,7 +70,7 @@ export function CodeDiffViewer({
             <Code className="h-4 w-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm font-semibold text-white">{fileName}</span>
               <Badge
                 variant={isCritical ? "destructive" : "success"}
@@ -77,6 +79,12 @@ export function CodeDiffViewer({
                 {isCritical ? <ShieldAlert className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
                 {vulnerabilityTitle}
               </Badge>
+              {modelUsed && (
+                <Badge variant="outline" className="border-cyan-500/20 bg-cyan-950/40 text-cyan-300 text-[10px] font-mono py-0 px-2 gap-1">
+                  <span>{modelUsed.includes("Claude") ? "🧠" : modelUsed.includes("GPT") ? "⚡" : "🦙"}</span>
+                  <span>{modelUsed}</span>
+                </Badge>
+              )}
             </div>
           </div>
         </div>

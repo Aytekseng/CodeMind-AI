@@ -126,6 +126,21 @@ sequenceDiagram
 - `AnalysisResultBackgroundService`, `KafkaProducer`, `KafkaConsumer` ve `DocumentService` içerisindeki tüm `Console.WriteLine` çağrıları `ILogger<T>` yapılandırılmış loglamaya dönüştürüldü.
 - `docker-compose.yml` dosyasına logları web arayüzünde sorgulamak için hafif ve modern **Seq** (`localhost:5341`) servisi eklendi.
 
+### ✅ Aşama 10: Çoklu Model Desteği (Multi-LLM Switcher: Llama 3, GPT-4o, Claude 3.5 Sonnet)
+- **Python AI Worker (`CodeMind.AIWorker`):**
+  - `langchain-openai` ve `langchain-anthropic` bağımlılıkları eklenerek dinamik LLM Factory (`get_llm_instance`) yazıldı.
+  - Varsayılan olarak yerel `Llama 3 (Ollama)` sıfır maliyet ve yerel GPU ile çalışırken; kullanıcının seçimine göre `OpenAI GPT-4o` veya `Anthropic Claude 3.5 Sonnet` çağrılabiliyor.
+  - Event şemaları (`FileUploadedEvent.Model`, `FileUploadedEvent.ApiKey`, `AnalysisCompletedEvent.ModelUsed`) güncellendi; API anahtarı veya kota hatalarında boru hattının kilitlenmemesi için dayanıklı hata yakalama (resilient fallback event) eklendi.
+- **.NET 10 Backend & Database:**
+  - `FileUploadedEvent` içerisine `Model` ve `ApiKey` eklendi; `AnalysisCompletedEvent` içerisine `ModelUsed` eklendi.
+  - EF Core `AnalysisReport` tablosuna `ModelUsed` kolonu eklendi ve migration (`AddModelUsedToAnalysisReport`) PostgreSQL veritabanına uygulandı.
+  - `DocumentService` ve `DocumentController` multipart form verisinden model ve API key parametrelerini alıp Kafka kuyruğuna iletecek şekilde güncellendi.
+  - `AnalysisResultBackgroundService` SignalR üzerinden analiz sonucunu ve kullanılan model adını istemcilere yayınladı.
+- **Frontend & Kullanıcı Deneyimi:**
+  - `ModelSelector` bileşeni geliştirildi: Llama 3 (Yerel & Ücretsiz), OpenAI GPT-4o (BYOK) ve Claude 3.5 Sonnet (BYOK) seçim kartları.
+  - BYOK (Bring Your Own Key) mimarisiyle kullanıcının API anahtarları yalnızca tarayıcısının `localStorage` alanında güvenle saklanır, form yüklemesinde geçici olarak iletilir.
+  - `DragDropArea`, `LoadingTerminal`, `CodeDiffViewer` ve `AnalysisHistoryTable` bileşenlerine seçili/kullanılan model rozetleri (`🦙 Llama 3`, `⚡ GPT-4o`, `🧠 Claude 3.5 Sonnet`) entegre edildi.
+
 ---
 
 ## 4. Gelecek Yol Haritası (Future Roadmap)
@@ -140,8 +155,8 @@ sequenceDiagram
    - Serilog ile yapılandırılmış logların Seq sunucusuna, dönen dosyalara (`logs/codemind-*.log`) ve renkli konsola yazılması.
 
 ### 🔵 Opsiyonel / İleri Düzey Vizyoner Eklentiler
-1. **Çoklu Model Desteği (Multi-LLM Switcher):**
-   - Yerel Llama 3'e ek olarak kullanıcının kendi API anahtarıyla GPT-4o veya Claude 3.5 Sonnet seçebilmesi.
+1. **✅ Çoklu Model Desteği (Multi-LLM Switcher) [TAMAMLANDI]:**
+   - Yerel Llama 3'e ek olarak kullanıcının kendi API anahtarıyla (BYOK) GPT-4o veya Claude 3.5 Sonnet seçebilmesi.
 2. **PDF & Markdown Güvenlik Raporu Dışa Aktarma (Export):**
    - Dashboard'daki analiz raporunun kurumsal formatta PDF olarak indirilmesi.
 3. **GitHub / GitLab Webhook Entegrasyonu:**

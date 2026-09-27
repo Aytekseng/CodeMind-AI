@@ -6,6 +6,7 @@ import { UploadCloud, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
 import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
+import { ModelSelector, AVAILABLE_MODELS } from "@/components/upload/ModelSelector"
 import { uploadDocumentAsync } from "@/services/documentService"
 import { useAuth } from "@/hooks/useAuth"
 import { useAnalysis } from "@/context/AnalysisContext"
@@ -23,6 +24,8 @@ export function DragDropArea() {
   const { session, startAnalysis, setUploadSuccess, setUploadError, resetAnalysis } = useAnalysis()
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+  const [selectedModel, setSelectedModel] = React.useState<string>("llama3")
+  const [apiKey, setApiKey] = React.useState<string>("")
   const [isDragActive, setIsDragActive] = React.useState<boolean>(false)
   const [validationError, setValidationError] = React.useState<string | null>(null)
   const [isLocalUploading, setIsLocalUploading] = React.useState<boolean>(false)
@@ -104,12 +107,18 @@ export function DragDropArea() {
       return
     }
 
+    const modelObj = AVAILABLE_MODELS.find((m) => m.id === selectedModel)
+    if (modelObj?.requiresApiKey && !apiKey.trim()) {
+      toast.error(`${modelObj.name} ile analiz yapabilmek için lütfen geçerli bir API anahtarı girin.`)
+      return
+    }
+
     setIsLocalUploading(true)
-    startAnalysis(selectedFile.name)
+    startAnalysis(selectedFile.name, selectedModel)
 
     try {
-      console.log("[DragDropArea] Dosya yükleniyor:", selectedFile.name)
-      const response = await uploadDocumentAsync(selectedFile)
+      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${selectedModel})`)
+      const response = await uploadDocumentAsync(selectedFile, selectedModel, apiKey.trim() || undefined)
       console.log("[DragDropArea] API Yanıtı:", response)
 
       if (response && response.isSuccess) {
@@ -139,7 +148,19 @@ export function DragDropArea() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Model Seçim Paneli (Yalnızca analiz çalışmıyorken gösterilir) */}
+      {!session.isAnalyzing && (
+        <div className="rounded-2xl border border-white/10 bg-[#080a11]/80 backdrop-blur-md p-4 sm:p-5 shadow-xl">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onSelectModel={setSelectedModel}
+            apiKey={apiKey}
+            onApiKeyChange={setApiKey}
+          />
+        </div>
+      )}
+
       {/* Eğer kalıcı terminal oturumu aktifse (sayfa değiştirilse dahi), LoadingTerminal gösterilir */}
       {session.isAnalyzing ? (
         <LoadingTerminal />

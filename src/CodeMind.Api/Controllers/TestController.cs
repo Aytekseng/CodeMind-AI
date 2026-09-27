@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using CodeMind.Domain.Events;
+using CodeMind.Domain.Interfaces;
 
 [ApiController]
 [Route("api/[controller]")]

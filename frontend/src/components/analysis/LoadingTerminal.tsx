@@ -28,6 +28,12 @@ export function LoadingTerminal() {
   const completedCount = Object.keys(completedFiles || {}).length
   const progressPercent = Math.min(100, Math.round((completedCount / totalFilesCount) * 100))
 
+  const activeModelLabel = latestResult?.modelUsed || (
+    session.selectedModel === "gpt-4o" ? "OpenAI GPT-4o" :
+    session.selectedModel === "claude-3-5-sonnet" ? "Claude 3.5 Sonnet" :
+    "Llama 3"
+  )
+
   // Auto-scroll to bottom of logs
   React.useEffect(() => {
     if (logsContainerRef.current) {
@@ -62,10 +68,13 @@ export function LoadingTerminal() {
           <div className="h-3 w-3 rounded-full bg-rose-500/80" />
           <div className="h-3 w-3 rounded-full bg-amber-500/80" />
           <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
-          <span className="ml-2 font-mono text-xs text-zinc-400 flex items-center gap-1.5 truncate max-w-[200px] sm:max-w-md">
+          <span className="ml-2 font-mono text-xs text-zinc-400 flex items-center gap-1.5 truncate max-w-[180px] sm:max-w-xs">
             <Terminal className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
             codemind-ai-engine ~ {fileName || "kod-analizi"}
           </span>
+          <Badge variant="outline" className="hidden sm:inline-flex border-cyan-500/20 bg-cyan-950/40 text-cyan-300 text-[10px] font-mono py-0 px-2">
+            🤖 {activeModelLabel}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

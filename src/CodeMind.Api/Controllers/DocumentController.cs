@@ -23,7 +23,7 @@ public class DocumentController : ControllerBase
 
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadFile([FromForm] IFormFile file)
+    public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] string? model = "llama3", [FromForm] string? apiKey = null)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi veya boş dosya.", "Lütfen geçerli bir dosya seçin."));
@@ -35,7 +35,7 @@ public class DocumentController : ControllerBase
         // 1. Eğer dosya bir .ZIP arşivi ise çoklu dosya işleyicisine yönlendir
         if (extension == ".zip" || file.ContentType == "application/zip" || file.ContentType == "application/x-zip-compressed")
         {
-            var zipResponse = await _documentService.UploadAndQueueZipAsync(stream, file.FileName);
+            var zipResponse = await _documentService.UploadAndQueueZipAsync(stream, file.FileName, model, apiKey);
             if (!zipResponse.IsSuccess)
                 return BadRequest(zipResponse);
 
@@ -43,7 +43,7 @@ public class DocumentController : ControllerBase
         }
 
         // 2. Tekil kod dosyası ise mevcut işleyiciyi kullan
-        var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType ?? "application/octet-stream");
+        var response = await _documentService.UploadAndQueueDocumentAsync(stream, file.FileName, file.ContentType ?? "application/octet-stream", model, apiKey);
 
         if (!response.IsSuccess)
             return BadRequest(response);

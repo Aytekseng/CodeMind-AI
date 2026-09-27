@@ -221,3 +221,37 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 #### 🧪 Doğrulama ve Test
 * .NET API derlemesi (`dotnet build`) **0 hata, 0 uyarı**.
 * API başlatılarak `logs/codemind-20260927.log` dosyasının structured JSON metaverileriyle başarıyla oluştuğu doğrulandı.
+
+---
+
+### 🚀 Aşama 10: Çoklu Model Desteği (Multi-LLM Switcher: Llama 3, GPT-4o, Claude 3.5 Sonnet)
+* **Tarih:** 27 Eylül 2026
+* **Çalışılan Dal (Branch):** `feature/multi-llm-support`
+* **Durum:** ✅ Tamamlandı & Doğrulandı
+
+#### 📝 Gerçekleştirilen İşlemler
+1. **Python AI Worker LLM Factory Mimarisi (`CodeMind.AIWorker`):**
+   * `requirements.txt` dosyasına `langchain-ollama`, `langchain-openai` ve `langchain-anthropic` paketleri eklendi ve `uv pip install` ile sanal ortama kuruldu.
+   * `core/config.py`: İsteğe bağlı ortam değişkenleri (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) eklendi.
+   * `schemas/events.py`: `FileUploadedEvent` şemasına `model` (varsayılan: "llama3") ve `api_key` alanları, `AnalysisCompletedEvent` şemasına `model_used` (varsayılan: "Llama 3") alanı eklendi.
+   * `services/ai_service.py`: `get_llm_instance(model_name, custom_api_key)` factory fonksiyonu tasarlandı. Kullanıcı API anahtarı sağladığında veya ortam değişkeninde mevcut olduğunda OpenAI GPT-4o (`ChatOpenAI(model="gpt-4o")`) ve Claude 3.5 Sonnet (`ChatAnthropic(model="claude-3-5-sonnet-20241022")`) dinamik olarak oluşturuluyor.
+   * Boru hattı dayanıklılığı (Resilience): Kota veya API key hatalarında Kafka tüketiminin sonsuz döngüye girmemesi için `AnalysisCompletedEvent` ile istemciye açıklayıcı hata raporu fırlatan fallback mekanizması eklendi.
+2. **.NET 10 API & Veritabanı Migration:**
+   * `FileUploadedEvent.cs`: `Model` ve `ApiKey` alanları eklendi.
+   * `AnalysisCompletedEvent.cs` & `AnalysisReport.cs`: `ModelUsed` alanı eklendi.
+   * EF Core Migration: `dotnet ef migrations add AddModelUsedToAnalysisReport` oluşturuldu ve `dotnet ef database update` ile PostgreSQL veritabanına uygulandı.
+   * `DocumentDtos.cs` & `DocumentService.cs`: `UploadAndQueueDocumentAsync` ve `UploadAndQueueZipAsync` metotlarına `model` ve `apiKey` parametreleri eklendi, DTO eşlemelerine `ModelUsed` dahil edildi.
+   * `DocumentController.cs`: `[FromForm] string? model = "llama3"` ve `[FromForm] string? apiKey = null` parametreleri form yükleme uç noktasına eklendi.
+   * `AnalysisResultBackgroundService.cs`: Gelen analiz sonucundaki `ModelUsed` verisi PostgreSQL'e yazıldı ve SignalR üzerinden istemcilere iletildi.
+3. **Frontend BYOK (Bring Your Own Key) Arayüzü & Durum Yönetimi:**
+   * `ModelSelector.tsx`: Siberpunk temalı, Llama 3 (Yerel & Ücretsiz), OpenAI GPT-4o (BYOK) ve Claude 3.5 Sonnet (BYOK) seçeneklerini içeren seçim kartları ve şifreli API anahtarı giriş alanı geliştirildi. Anahtarlar kullanıcının tarayıcısında `localStorage` içerisinde güvenle saklanır.
+   * `DragDropArea.tsx`: `ModelSelector` bileşeni entegre edildi, yükleme öncesi model ve anahtar validasyonu sağlandı.
+   * `documentService.ts`: `uploadDocumentAsync(file, model, apiKey, onProgress)` imzası güncellendi.
+   * `AnalysisContext.tsx`: `selectedModel` ve `modelUsed` durumları SignalR ve oturum saklayıcısına eklendi.
+   * `LoadingTerminal.tsx`, `CodeDiffViewer.tsx`, `AnalysisHistoryTable.tsx` ve `dashboard/page.tsx`: Analizde kullanılan modeli gösteren dinamik rozetler ve ikonlar (`🦙 Llama 3`, `⚡ GPT-4o`, `🧠 Claude 3.5 Sonnet`) entegre edildi.
+
+#### 🧪 Doğrulama ve Test
+* .NET API derlemesi (`dotnet build src/CodeMind.Api/CodeMind.Api.csproj`): **0 hata, 0 uyarı**.
+* Next.js derlemesi (`npm run build`): **0 hata** (TypeScript ve Turbopack derlemesi 9/9 sayfa başarıyla tamamlandı).
+* PostgreSQL migration'ı Docker konteynerindeki veritabanına başarıyla uygulandı (`20260927142415_AddModelUsedToAnalysisReport`).
+* Python ortamında `langchain_openai` ve `langchain_anthropic` import testleri başarıyla doğrulandı.

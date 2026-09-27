@@ -12,8 +12,9 @@ class FileUploadedEvent(BaseModel):
     object_key: str = Field(alias="ObjectKey", default="")
     user_id: str = Field(alias="UploadedByUserId", default="")
     tenant_id: Optional[str] = Field(alias="TenantId", default=None)
+    model: Optional[str] = Field(alias="Model", default="llama3")
+    api_key: Optional[str] = Field(alias="ApiKey", default="")
 
-    # Pydantic, hem camelCase hem de snake_case ile çalışabilmesi için populate_by_name kullanır
     class Config:
         populate_by_name = True
 
@@ -22,5 +23,7 @@ class AnalysisCompletedEvent(BaseModel):
     file_id: str = Field(alias="FileId")
     severity: str = Field(alias="Severity", default="Medium")
     ai_suggestion: str = Field(alias="AiSuggestion", default="")
+    model_used: Optional[str] = Field(alias="ModelUsed", default="Llama 3")
+
     class Config:
         populate_by_name = True

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     OLLAMA_NUM_GPU: int = 99         # Harici güçlü GPU'ya maksimum katmanı zorla (NVIDIA CUDA)
     OLLAMA_TEMPERATURE: float = 0.2  # Kod analizi için deterministik ve kararlı çıktı
 
+    # Çoklu Model (Cloud LLM) Varsayılan API Anahtarları (İsteğe Bağlı)
+    OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+
     class Config:
         env_file = "../../.env"  # Points to the root .env file
         extra = "ignore" # .env içindeki diğer değerleri yok say

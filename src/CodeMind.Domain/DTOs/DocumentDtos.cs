@@ -16,6 +16,7 @@ public class DocumentHistoryDto
     public string? LatestAiSuggestion { get; set; }
     public Guid? ProjectId { get; set; }
     public string? ProjectName { get; set; }
+    public string? ModelUsed { get; set; } = "Llama 3";
 }
 
 public class DocumentReportDetailDto
@@ -31,6 +32,7 @@ public class DocumentReportDetailDto
     public string OriginalCode { get; set; } = string.Empty;
     public Guid? ProjectId { get; set; }
     public string? ProjectName { get; set; }
+    public string? ModelUsed { get; set; } = "Llama 3";
     public List<int> VulnerableLines { get; set; } = new();
 }
 
@@ -53,6 +55,7 @@ public class ProjectFileDto
     public string Status { get; set; } = string.Empty;
     public string Severity { get; set; } = "İnceleniyor";
     public int Score { get; set; } = 85;
+    public string? ModelUsed { get; set; } = "Llama 3";
 }
 
 public class DashboardStatsDto
@@ -65,4 +68,3 @@ public class DashboardStatsDto
     public int LowCount { get; set; }
     public List<DocumentHistoryDto> RecentDocuments { get; set; } = new();
 }
-

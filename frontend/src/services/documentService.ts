@@ -14,6 +14,7 @@ export interface DocumentHistoryItem {
   latestAiSuggestion?: string
   projectId?: string
   projectName?: string
+  modelUsed?: string
 }
 
 export interface DocumentReportDetail {
@@ -29,6 +30,7 @@ export interface DocumentReportDetail {
   vulnerableLines: number[]
   projectId?: string
   projectName?: string
+  modelUsed?: string
 }
 
 export interface DashboardStats {
@@ -65,6 +67,7 @@ export interface ProjectFile {
   status: string
   severity: string
   score: number
+  modelUsed?: string
 }
 
 /**
@@ -72,10 +75,16 @@ export interface ProjectFile {
  */
 export async function uploadDocumentAsync(
   file: File,
+  model: string = "llama3",
+  apiKey?: string,
   onProgress?: (percent: number) => void
 ): Promise<ApiResponse<UploadResultData>> {
   const formData = new FormData()
   formData.append("file", file)
+  formData.append("model", model)
+  if (apiKey) {
+    formData.append("apiKey", apiKey)
+  }
 
   return await api.upload<ApiResponse<UploadResultData>>(
     "/api/Document/upload",
