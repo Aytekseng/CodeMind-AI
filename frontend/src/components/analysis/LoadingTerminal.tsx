@@ -84,7 +84,7 @@ export function LoadingTerminal() {
           {uploadError ? (
             <Badge variant="destructive" className="gap-1 text-[11px]">
               <AlertTriangle className="h-3 w-3" />
-              <span>Hata Oluştu</span>
+              <span>Analiz İptal Edildi</span>
             </Badge>
           ) : isCompleted ? (
             <Badge variant="success" className="gap-1 text-[11px]">
@@ -209,16 +209,19 @@ export function LoadingTerminal() {
           </div>
         </div>
       ) : uploadError ? (
-        <div className="border-t border-rose-500/20 bg-[#150a0d] p-4 flex items-center justify-between">
-          <span className="text-xs text-rose-300">{uploadError}</span>
+        <div className="border-t border-rose-500/20 bg-[#150a0d] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-rose-300">
+            <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+            <span className="break-all">{uploadError}</span>
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={resetAnalysis}
-            className="text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+            className="text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/10 cursor-pointer shrink-0"
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1" />
-            Tekrar Dene
+            Yeni Dosya Yükle
           </Button>
         </div>
       ) : (

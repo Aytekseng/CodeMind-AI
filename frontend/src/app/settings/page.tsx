@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth/AuthGuard"
 import { useAuth } from "@/hooks/useAuth"
-import { ModelSelector } from "@/components/upload/ModelSelector"
+import { ModelSelector, AVAILABLE_MODELS } from "@/components/upload/ModelSelector"
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -16,6 +16,10 @@ export default function SettingsPage() {
   React.useEffect(() => {
     const saved = localStorage.getItem("codemind_selected_model") || "llama3"
     setSelectedModel(saved)
+    const modelObj = AVAILABLE_MODELS.find((m) => m.id === saved)
+    if (modelObj?.keyStorageKey) {
+      setApiKey(localStorage.getItem(modelObj.keyStorageKey) || "")
+    }
   }, [])
 
   return (

@@ -64,7 +64,14 @@ def start_consuming():
 
                 
             except Exception as e:
-                print(f"[-] Mesaj işlenirken hata oluştu: {e}")
+                err_msg = f"Mesaj işlenirken hata oluştu: {str(e)}"
+                print(f"[-] {err_msg}")
+                try:
+                    if 'event' in locals() and hasattr(event, 'file_id') and event.file_id:
+                        from kafka_utils.producer import send_analysis_failure
+                        send_analysis_failure(event.file_id, str(e), getattr(event, 'model', ''))
+                except Exception as inner_err:
+                    print(f"[-] Hata bildirimi fırlatılamadı: {inner_err}")
 
     except KeyboardInterrupt:
         print("\n[!] Kullanıcı tarafından sonlandırıldı.")

@@ -49,12 +49,41 @@ public class AnalysisResultBackgroundService : BackgroundService
                         using var scope = _scopeFactory.CreateScope();
                         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                        // 1. Doküman durumunu güncelle
+                        // 1. Dokümanı veritabanından çek
                         var doc = await dbContext.Documents
                             .IgnoreQueryFilters()
                             .Include(d => d.Project)
                             .FirstOrDefaultAsync(d => d.Id == eventData.FileId, stoppingToken);
 
+                        // 2. Başarısızlık / Hata Kontrolü
+                        var isFailed = !eventData.IsSuccess || !string.IsNullOrEmpty(eventData.ErrorMessage);
+                        if (isFailed)
+                        {
+                            var errMsg = eventData.ErrorMessage ?? "Yapay zeka analizi sırasında bir hata meydana geldi.";
+                            _logger.LogWarning("AI Worker analiz başarısızlığı bildirdi. FileId: {FileId}, Hata: {Error}", 
+                                eventData.FileId, errMsg);
+
+                            if (doc != null)
+                            {
+                                doc.Status = DocumentStatus.Failed;
+                                await dbContext.SaveChangesAsync(stoppingToken);
+                            }
+
+                            // SignalR üzerinden frontend'e iptal / hata bildir
+                            await _hubContext.Clients.All.SendAsync(
+                                "ReceiveAnalysisFailure",
+                                eventData.FileId.ToString(),
+                                errMsg,
+                                doc?.FileName ?? "",
+                                doc?.ProjectId.ToString() ?? "",
+                                eventData.ModelUsed ?? "",
+                                cancellationToken: stoppingToken
+                            );
+
+                            return;
+                        }
+
+                        // 2. Başarılı ise Doküman durumunu güncelle
                         if (doc != null)
                         {
                             doc.Status = DocumentStatus.Completed;

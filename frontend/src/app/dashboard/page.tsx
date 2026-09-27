@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, ShieldAlert, Cpu, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick } from "lucide-react"
+import { ShieldCheck, ShieldAlert, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScoreRadarChart } from "@/components/dashboard/ScoreRadarChart"
@@ -119,8 +119,8 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Top 4 Quick Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Top 3 Quick Metric Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-medium text-zinc-400">Toplam Taranan Dosya</CardTitle>
@@ -163,21 +163,6 @@ function DashboardContent() {
             </div>
             <p className="text-[11px] text-zinc-400 mt-1">
               Genel Kod Sağlığı
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-panel glass-panel-hover border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-zinc-400">Aktif Model</CardTitle>
-            <Cpu className="h-4 w-4 text-cyan-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-cyan-400 font-mono truncate">
-              {reportDetail?.modelUsed || "Yapay Zeka"}
-            </div>
-            <p className="text-[11px] text-cyan-300/80 mt-1">
-              Güvenlik Denetçisi
             </p>
           </CardContent>
         </Card>

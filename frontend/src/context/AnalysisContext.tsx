@@ -251,6 +251,37 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
+    connection.on("ReceiveAnalysisFailure", (fileId: string, errorMessage: string, fileName?: string, projectId?: string, modelUsed?: string) => {
+      console.warn("[SignalR Global] Analiz hatası alındı:", { fileId, errorMessage, fileName, projectId, modelUsed })
+
+      if (isMounted) {
+        toast.error(`❌ Analiz Başarısız: ${fileName || "Dosya"}`, {
+          description: errorMessage || "Yapay zeka analizi sırasında bir hata meydana geldi.",
+          duration: 9000,
+        })
+
+        setSession((prev) => {
+          if (!prev.isAnalyzing) return prev
+
+          return {
+            ...prev,
+            isAnalyzing: false,
+            isUploading: false,
+            uploadError: errorMessage || "Yapay zeka analizi sırasında hata oluştu ve işlem iptal edildi.",
+            logs: [
+              ...prev.logs,
+              {
+                id: Date.now() + 20,
+                prefix: "[HATA]",
+                message: `İşlem iptal edildi: ${errorMessage}`,
+                type: "error",
+              },
+            ],
+          }
+        })
+      }
+    })
+
     connection.onreconnecting(() => {
       if (isMounted) setSignalRStatus("Reconnecting")
     })

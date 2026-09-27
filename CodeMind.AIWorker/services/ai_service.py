@@ -8,7 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from schemas.events import FileUploadedEvent, AnalysisCompletedEvent
 from core.config import settings
-from kafka_utils.producer import send_analysis_result
+from kafka_utils.producer import send_analysis_result, send_analysis_failure
 
 def get_file_from_minio(object_key: str) -> str:
     """MinIO'dan dosyayı indirip içeriğini string olarak döndürür."""
@@ -215,7 +215,9 @@ def process_uploaded_file(event_data: FileUploadedEvent):
         document_text = get_file_from_minio(object_key)
         print("[AI Service] Dosya içeriği başarıyla okundu!")
     except Exception as e:
-        print(f"[AI Service] Dosya okuma hatası: {e}")
+        err = f"Dosya depolama alanından okunamadı: {str(e)}"
+        print(f"[AI Service] ❌ {err}")
+        send_analysis_failure(file_id, err, model_name)
         return
 
     # 2. Chunking
@@ -308,12 +310,6 @@ Doğrudan Türkçe teknik rapora odaklan."""
     except Exception as e:
         error_msg = f"Model analizi sırasında hata oluştu: {str(e)}"
         print(f"[AI Service] ❌ {error_msg}")
-        result_event = AnalysisCompletedEvent(
-            FileId=file_id,
-            Severity="Orta",
-            AiSuggestion=f"[ZAFİYET_DÜZEYİ: Orta]\n\n### 1. ⚠️ Model Analiz Hatası\n{error_msg}\n\nLütfen seçtiğiniz model ({model_name}) için sağlanan API anahtarını veya ağ bağlantınızı kontrol edin.",
-            ModelUsed=model_name
-        )
-        send_analysis_result(result_event)
+        send_analysis_failure(file_id, str(e), model_name)
 
     print("[AI Service] İşlem tamamlandı!\n")

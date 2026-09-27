@@ -18,7 +18,7 @@ export interface ModelOption {
 }
 
 export const AVAILABLE_MODELS: ModelOption[] = [
-  // 1. ÜCRETSİZ & ENTEGRE MODELLER
+  // 1. ÜCRETSİZ & YEREL MODELLER (API Key Gerekmez)
   {
     id: "llama3",
     name: "Llama 3 8B",
@@ -28,28 +28,6 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     icon: "🦙",
     description: "Cihazınızda çalışan, GPU hızlandırmalı açık kaynak model. API anahtarı gerekmez.",
-    requiresApiKey: false,
-  },
-  {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    category: "free",
-    provider: "Google Cloud",
-    badge: "Entegre & Ücretsiz",
-    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    icon: "⚡",
-    description: "Google AI Studio entegre bulut modeli. 1M token bağlam penceresi, ultra hızlı ve ücretsiz.",
-    requiresApiKey: false,
-  },
-  {
-    id: "groq-llama3-70b",
-    name: "Groq Llama 3.3 70B",
-    category: "free",
-    provider: "Groq LPU",
-    badge: "300+ token/s Bulut",
-    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    icon: "🚀",
-    description: "70 Milyar parametreli dev zeka, saniyede 300+ token hızıyla anında derin güvenlik denetimi.",
     requiresApiKey: false,
   },
   {
@@ -64,7 +42,33 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     requiresApiKey: false,
   },
 
-  // 2. KENDİ ANAHTARINIZ (BYOK - BRING YOUR OWN KEY)
+  // 2. BULUT & KENDİ API ANAHTARINIZ (BYOK)
+  {
+    id: "gemini-1.5-flash",
+    name: "Gemini 1.5 Flash",
+    category: "byok",
+    provider: "Google Cloud",
+    badge: "Google AI (Ücretsiz Key)",
+    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    icon: "⚡",
+    description: "Google AI Studio'dan alabileceğiniz ücretsiz API anahtarıyla 1M token bağlam ve ultra hızlı analiz.",
+    requiresApiKey: true,
+    keyStorageKey: "codemind_gemini_api_key",
+    keyPlaceholder: "AIzaSy...",
+  },
+  {
+    id: "groq-llama3-70b",
+    name: "Groq Llama 3.3 70B",
+    category: "byok",
+    provider: "Groq LPU",
+    badge: "Groq Cloud (Ücretsiz Key)",
+    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    icon: "🚀",
+    description: "Groq Console'dan alabileceğiniz ücretsiz API anahtarıyla saniyede 300+ token hızında anında denetim.",
+    requiresApiKey: true,
+    keyStorageKey: "codemind_groq_api_key",
+    keyPlaceholder: "gsk_...",
+  },
   {
     id: "gpt-4o",
     name: "OpenAI GPT-4o",
@@ -180,7 +184,7 @@ export function ModelSelector({
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            🎁 Ücretsiz & Hazır (4)
+            🎁 Yerel & Ücretsiz ({AVAILABLE_MODELS.filter((m) => m.category === "free").length})
           </button>
           <button
             type="button"
@@ -191,7 +195,7 @@ export function ModelSelector({
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            🔑 Kendi Keyiniz (2)
+            🔑 API Key İle ({AVAILABLE_MODELS.filter((m) => m.category === "byok").length})
           </button>
         </div>
       </div>

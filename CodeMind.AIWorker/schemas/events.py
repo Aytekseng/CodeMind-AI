@@ -24,6 +24,8 @@ class AnalysisCompletedEvent(BaseModel):
     severity: str = Field(alias="Severity", default="Medium")
     ai_suggestion: str = Field(alias="AiSuggestion", default="")
     model_used: Optional[str] = Field(alias="ModelUsed", default="Llama 3")
+    is_success: bool = Field(alias="IsSuccess", default=True)
+    error_message: Optional[str] = Field(alias="ErrorMessage", default=None)
 
     class Config:
         populate_by_name = True
