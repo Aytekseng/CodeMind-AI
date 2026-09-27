@@ -6,6 +6,9 @@ langchain-postgres
 langchain-ollama
 langchain-openai
 langchain-anthropic
+langchain-google-genai
+langchain-groq
+requests
 psycopg[binary,pool]
 pydantic
 pydantic-settings

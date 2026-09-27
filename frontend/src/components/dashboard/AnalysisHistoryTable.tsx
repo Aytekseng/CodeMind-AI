@@ -110,6 +110,16 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
     )
   }
 
+  const getModelIcon = (model?: string) => {
+    if (!model) return "🦙"
+    if (model.includes("Gemini")) return "⚡"
+    if (model.includes("Groq")) return "🚀"
+    if (model.includes("Qwen")) return "💻"
+    if (model.includes("Claude")) return "🛡️"
+    if (model.includes("GPT") || model.includes("OpenAI")) return "🧠"
+    return "🦙"
+  }
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-"
     try {
@@ -227,7 +237,8 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                   <td className="px-5 py-3.5 text-zinc-400">{item.language || "Code"}</td>
                   <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-mono border bg-cyan-950/30 text-cyan-300 border-cyan-500/20">
-                      {item.modelUsed?.includes("Claude") ? "🧠" : item.modelUsed?.includes("GPT") ? "⚡" : "🦙"} {item.modelUsed || "Llama 3"}
+                      <span>{getModelIcon(item.modelUsed)}</span>
+                      <span>{item.modelUsed || "Llama 3"}</span>
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-zinc-400">{formatDate(item.createdAt)}</td>

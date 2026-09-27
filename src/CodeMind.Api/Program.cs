@@ -43,6 +43,8 @@ try
     // Add services to the container.
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddMemoryCache();
+    builder.Services.AddSingleton<ITempKeyVaultService, TempKeyVaultService>();
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddScoped<IAuthService, AuthService>();

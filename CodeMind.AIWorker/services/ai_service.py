@@ -35,14 +35,90 @@ def get_vector_store():
 
     return vector_store
 
+import requests
+
+def resolve_ephemeral_api_key(key_token: str) -> str:
+    """
+    Kafka event'inde gelen tek kullanımlık geçici bileti (KeyToken)
+    .NET API'nin In-Memory anahtar kasasına sorarak anahtarı sadece RAM'e çeker.
+    Kafka'da veya diskte asla açık anahtar saklanmaz.
+    """
+    if not key_token:
+        return ""
+    try:
+        url = f"{settings.INTERNAL_API_URL}/api/internal/keys/consume"
+        resp = requests.post(url, json={"KeyToken": key_token}, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            api_key = data.get("ApiKey", "")
+            print(f"[AI Service] 🔑 Ephemeral API Key başarıyla RAM'e çekildi (Token: {key_token[:8]}...)")
+            return api_key
+        else:
+            print(f"[AI Service] ⚠️ Geçici bilet doğrulanamadı ({resp.status_code}): {key_token}")
+            return ""
+    except Exception as e:
+        print(f"[AI Service] ⚠️ Dahili anahtar kasasına erişilemedi ({settings.INTERNAL_API_URL}): {e}")
+        return ""
+
 def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
     """
-    Kullanıcının seçtiği modele göre (Llama 3, GPT-4o, Claude 3.5 Sonnet) uygun LangChain ChatModel nesnesini döndürür.
+    Kullanıcının seçtiği modele göre uygun LangChain ChatModel nesnesini döndürür:
+    - 🦙 Llama 3 (Yerel Ollama - Ücretsiz)
+    - 💻 Qwen 2.5 Coder 7B (Yerel Ollama - Ücretsiz)
+    - ⚡ Google Gemini 1.5 Flash (Entegre Bulut - Ücretsiz)
+    - 🚀 Groq Llama 3.3 70B (Entegre Bulut - Ücretsiz)
+    - ⚡ OpenAI GPT-4o / GPT-4o-mini (BYOK)
+    - 🧠 Anthropic Claude 3.5 Sonnet (BYOK)
     """
     model_lower = (model_name or "llama3").lower().strip()
 
-    # 1. OpenAI GPT-4o / GPT-4o-mini
-    if "gpt" in model_lower or "openai" in model_lower:
+    # 1. Google Gemini 1.5 Flash (Entegre Bulut & Ücretsiz Tier)
+    if "gemini" in model_lower:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        key = custom_api_key or settings.GEMINI_API_KEY
+        if not key:
+            raise ValueError(
+                "Google Gemini için API anahtarı bulunamadı. "
+                "Lütfen sistem yöneticisinin .env dosyasına GEMINI_API_KEY eklemesini sağlayın "
+                "veya kendi Google AI Studio anahtarınızı girin."
+            )
+        print("[AI Service] ⚡ Google Gemini 1.5 Flash modeli başlatılıyor...")
+        return ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            google_api_key=key,
+            temperature=0.2
+        ), "Google Gemini 1.5 Flash"
+
+    # 2. Groq Llama 3.3 70B (Ultra Hızlı Çıkarım & Ücretsiz Tier)
+    elif "groq" in model_lower:
+        from langchain_groq import ChatGroq
+        key = custom_api_key or settings.GROQ_API_KEY
+        if not key:
+            raise ValueError(
+                "Groq Llama 3.3 70B için API anahtarı bulunamadı. "
+                "Lütfen sistem yöneticisinin .env dosyasına GROQ_API_KEY eklemesini sağlayın "
+                "veya kendi Groq API anahtarınızı girin."
+            )
+        print("[AI Service] 🚀 Groq Llama 3.3 70B Versatile modeli başlatılıyor...")
+        return ChatGroq(
+            model_name="llama-3.3-70b-versatile",
+            groq_api_key=key,
+            temperature=0.2
+        ), "Groq Llama 3.3 70B"
+
+    # 3. Qwen 2.5 Coder 7B (Yerel Ollama - Ücretsiz & Sınırsız)
+    elif "qwen" in model_lower:
+        print("[AI Service] 💻 Yerel Ollama Qwen 2.5 Coder (qwen2.5-coder:7b) başlatılıyor...")
+        return ChatOllama(
+            model="qwen2.5-coder:7b",
+            base_url=settings.OLLAMA_BASE_URL,
+            num_ctx=settings.OLLAMA_NUM_CTX,
+            num_gpu=settings.OLLAMA_NUM_GPU,
+            temperature=0.2
+        ), "Qwen 2.5 Coder 7B (Yerel)"
+
+    # 4. OpenAI GPT-4o / GPT-4o-mini (BYOK)
+    elif "gpt" in model_lower or "openai" in model_lower:
         from langchain_openai import ChatOpenAI
         key = custom_api_key or settings.OPENAI_API_KEY
         if not key:
@@ -56,7 +132,7 @@ def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
             temperature=0.2
         ), f"OpenAI {target_model.upper()}"
 
-    # 2. Anthropic Claude 3.5 Sonnet
+    # 5. Anthropic Claude 3.5 Sonnet (BYOK)
     elif "claude" in model_lower or "anthropic" in model_lower:
         from langchain_anthropic import ChatAnthropic
         key = custom_api_key or settings.ANTHROPIC_API_KEY
@@ -70,7 +146,7 @@ def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
             temperature=0.2
         ), "Claude 3.5 Sonnet"
 
-    # 3. Varsayılan / Yerel: Ollama Llama 3
+    # 6. Varsayılan / Yerel: Ollama Llama 3 8B
     else:
         print(f"[AI Service] 🦙 Yerel Ollama Llama 3 ({settings.OLLAMA_LLM_MODEL}) modeli başlatılıyor...")
         return ChatOllama(
@@ -129,7 +205,8 @@ def process_uploaded_file(event_data: FileUploadedEvent):
     user_id = event_data.user_id or "Bilinmiyor"
     tenant_id = event_data.tenant_id or "Bilinmiyor"
     model_name = event_data.model or "llama3"
-    api_key = event_data.api_key or ""
+    key_token = event_data.key_token
+    custom_api_key = resolve_ephemeral_api_key(key_token) if key_token else ""
 
     print(f"\n[AI Service] 📥 {file_name} dosyası MinIO'dan indiriliyor... (Kullanıcı ID: {user_id} | Şirket ID: {tenant_id} | Model: {model_name})")
 
@@ -171,8 +248,8 @@ def process_uploaded_file(event_data: FileUploadedEvent):
         if docs:
             context = "\n\n".join([doc.page_content for doc in docs])
             
-            # Dinamik Çoklu Model Yükleyici (Llama 3 / GPT-4o / Claude 3.5 Sonnet)
-            llm, model_display_name = get_llm_instance(model_name, api_key)
+            # Dinamik Çoklu Model Yükleyici (Llama 3 / Qwen 2.5 / Gemini / Groq / GPT-4o / Claude)
+            llm, model_display_name = get_llm_instance(model_name, custom_api_key)
             
             system_prompt = f"""Sen uzman bir Kıdemli Yazılım Mimarı ve Siber Güvenlik Baş Denetçisisin.
 Şu anda bir {detected_language} kaynak kod dosyasını inceliyorsun.

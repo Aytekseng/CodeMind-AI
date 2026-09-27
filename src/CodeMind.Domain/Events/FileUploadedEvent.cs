@@ -9,5 +9,5 @@ public class FileUploadedEvent
     public string UploadedByUserId { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
     public string Model { get; set; } = "llama3";
-    public string? ApiKey { get; set; }
+    public string? KeyToken { get; set; }
 }

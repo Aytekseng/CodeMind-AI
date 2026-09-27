@@ -13,7 +13,7 @@ class FileUploadedEvent(BaseModel):
     user_id: str = Field(alias="UploadedByUserId", default="")
     tenant_id: Optional[str] = Field(alias="TenantId", default=None)
     model: Optional[str] = Field(alias="Model", default="llama3")
-    api_key: Optional[str] = Field(alias="ApiKey", default="")
+    key_token: Optional[str] = Field(alias="KeyToken", default=None)
 
     class Config:
         populate_by_name = True

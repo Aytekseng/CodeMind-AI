@@ -177,7 +177,7 @@ function DashboardContent() {
               {reportDetail?.modelUsed || "Llama 3 8B"}
             </div>
             <p className="text-[11px] text-cyan-300/80 mt-1">
-              RAG & PgVector Entegre
+              Aktif Güvenlik Denetçisi
             </p>
           </CardContent>
         </Card>

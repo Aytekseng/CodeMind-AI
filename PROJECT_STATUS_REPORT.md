@@ -126,20 +126,26 @@ sequenceDiagram
 - `AnalysisResultBackgroundService`, `KafkaProducer`, `KafkaConsumer` ve `DocumentService` içerisindeki tüm `Console.WriteLine` çağrıları `ILogger<T>` yapılandırılmış loglamaya dönüştürüldü.
 - `docker-compose.yml` dosyasına logları web arayüzünde sorgulamak için hafif ve modern **Seq** (`localhost:5341`) servisi eklendi.
 
-### ✅ Aşama 10: Çoklu Model Desteği (Multi-LLM Switcher: Llama 3, GPT-4o, Claude 3.5 Sonnet)
-- **Python AI Worker (`CodeMind.AIWorker`):**
-  - `langchain-openai` ve `langchain-anthropic` bağımlılıkları eklenerek dinamik LLM Factory (`get_llm_instance`) yazıldı.
-  - Varsayılan olarak yerel `Llama 3 (Ollama)` sıfır maliyet ve yerel GPU ile çalışırken; kullanıcının seçimine göre `OpenAI GPT-4o` veya `Anthropic Claude 3.5 Sonnet` çağrılabiliyor.
-  - Event şemaları (`FileUploadedEvent.Model`, `FileUploadedEvent.ApiKey`, `AnalysisCompletedEvent.ModelUsed`) güncellendi; API anahtarı veya kota hatalarında boru hattının kilitlenmemesi için dayanıklı hata yakalama (resilient fallback event) eklendi.
-- **.NET 10 Backend & Database:**
-  - `FileUploadedEvent` içerisine `Model` ve `ApiKey` eklendi; `AnalysisCompletedEvent` içerisine `ModelUsed` eklendi.
-  - EF Core `AnalysisReport` tablosuna `ModelUsed` kolonu eklendi ve migration (`AddModelUsedToAnalysisReport`) PostgreSQL veritabanına uygulandı.
-  - `DocumentService` ve `DocumentController` multipart form verisinden model ve API key parametrelerini alıp Kafka kuyruğuna iletecek şekilde güncellendi.
-  - `AnalysisResultBackgroundService` SignalR üzerinden analiz sonucunu ve kullanılan model adını istemcilere yayınladı.
-- **Frontend & Kullanıcı Deneyimi:**
-  - `ModelSelector` bileşeni geliştirildi: Llama 3 (Yerel & Ücretsiz), OpenAI GPT-4o (BYOK) ve Claude 3.5 Sonnet (BYOK) seçim kartları.
-  - BYOK (Bring Your Own Key) mimarisiyle kullanıcının API anahtarları yalnızca tarayıcısının `localStorage` alanında güvenle saklanır, form yüklemesinde geçici olarak iletilir.
-  - `DragDropArea`, `LoadingTerminal`, `CodeDiffViewer` ve `AnalysisHistoryTable` bileşenlerine seçili/kullanılan model rozetleri (`🦙 Llama 3`, `⚡ GPT-4o`, `🧠 Claude 3.5 Sonnet`) entegre edildi.
+### ✅ Aşama 10: Çoklu Model Desteği & Ephemeral RAM Key Vault Güvenliği (Llama 3, Qwen 2.5, Gemini Flash, Groq 70B, GPT-4o, Claude)
+- **Zero-Disk Güvenlik Mimarisi (Ephemeral Key Vault):**
+  - BYOK (Bring Your Own Key) anahtarlarının Kafka kuyruğuna açık metin (plain-text) olarak yazılması ve diske kaydedilmesi tamamen engellendi.
+  - .NET 10 üzerinde `ITempKeyVaultService` (`IMemoryCache`) geliştirildi; API anahtarları yalnızca RAM belleğinde tutularak 90 saniye sonra kendini imha eden tek kullanımlık `KeyToken` (bilet) üretildi.
+  - Kafka `FileUploadedEvent` içerisindeki `ApiKey` alanı kaldırılarak yerine zararsız `KeyToken` geçirildi; Kafka diskinde sıfır açık anahtar izolasyonu sağlandı.
+  - Python AI Worker için dahili anahtar tüketim uç noktası (`POST /api/internal/keys/consume`) açıldı; anahtar yalnızca analiz anında RAM'e alınıp tüketildi.
+- **Python AI Worker LLM Ekosistemi (`CodeMind.AIWorker`):**
+  - `langchain-google-genai` ve `langchain-groq` paketleri ortama entegre edildi.
+  - 4 Adet Tamamen Ücretsiz & Hazır Model:
+    1. `Llama 3 8B (Yerel Ollama)` - Cihazda çevrimdışı ve GPU hızlandırmalı.
+    2. `Qwen 2.5 Coder 7B (Yerel Ollama)` - Siber güvenlik ve kodlamada lider açık kaynak model.
+    3. `Google Gemini 1.5 Flash (Entegre Bulut)` - Google AI Studio ücretsiz tier, 1M token bağlam penceresi.
+    4. `Groq Llama 3.3 70B (Entegre Bulut)` - 300+ token/saniye ultra hızlı LPU çıkarımı, 70 Milyar parametre.
+  - 2 Adet BYOK Premium Model:
+    5. `OpenAI GPT-4o` (Kullanıcının kendi anahtarıyla)
+    6. `Anthropic Claude 3.5 Sonnet` (Kullanıcının kendi anahtarıyla)
+- **Frontend & ModelSelector Yeniliği:**
+  - `ModelSelector.tsx` sekmeli filtreleme ile güncellendi: "Tümü (6)", "🎁 Ücretsiz & Hazır (4)" ve "🔑 Kendi Keyiniz (2)".
+  - Ücretsiz modeller seçildiğinde API anahtarı alanı otomatik gizlenir; BYOK modelleri seçildiğinde ise "Ephemeral RAM Vault Korumalı (Diske Yazılmaz)" güvenlik bilgilendirmesi sunulur.
+  - `LoadingTerminal`, `CodeDiffViewer` ve `AnalysisHistoryTable` bileşenleri 6 modeli de dinamik rozetler ve ikonlarla gösterecek şekilde uyarlandı.
 
 ---
 

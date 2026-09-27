@@ -224,34 +224,34 @@ Frontend geliştirmelerine başlanmadan önce tamamlanmış olan arka plan mimar
 
 ---
 
-### 🚀 Aşama 10: Çoklu Model Desteği (Multi-LLM Switcher: Llama 3, GPT-4o, Claude 3.5 Sonnet)
+### 🚀 Aşama 10: Çoklu Model Desteği & Ephemeral RAM Key Vault Güvenliği
 * **Tarih:** 27 Eylül 2026
-* **Çalışılan Dal (Branch):** `feature/multi-llm-support`
+* **Çalışılan Dal (Branch):** `feature/security-vault-and-free-llms`
 * **Durum:** ✅ Tamamlandı & Doğrulandı
 
 #### 📝 Gerçekleştirilen İşlemler
-1. **Python AI Worker LLM Factory Mimarisi (`CodeMind.AIWorker`):**
-   * `requirements.txt` dosyasına `langchain-ollama`, `langchain-openai` ve `langchain-anthropic` paketleri eklendi ve `uv pip install` ile sanal ortama kuruldu.
-   * `core/config.py`: İsteğe bağlı ortam değişkenleri (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) eklendi.
-   * `schemas/events.py`: `FileUploadedEvent` şemasına `model` (varsayılan: "llama3") ve `api_key` alanları, `AnalysisCompletedEvent` şemasına `model_used` (varsayılan: "Llama 3") alanı eklendi.
-   * `services/ai_service.py`: `get_llm_instance(model_name, custom_api_key)` factory fonksiyonu tasarlandı. Kullanıcı API anahtarı sağladığında veya ortam değişkeninde mevcut olduğunda OpenAI GPT-4o (`ChatOpenAI(model="gpt-4o")`) ve Claude 3.5 Sonnet (`ChatAnthropic(model="claude-3-5-sonnet-20241022")`) dinamik olarak oluşturuluyor.
-   * Boru hattı dayanıklılığı (Resilience): Kota veya API key hatalarında Kafka tüketiminin sonsuz döngüye girmemesi için `AnalysisCompletedEvent` ile istemciye açıklayıcı hata raporu fırlatan fallback mekanizması eklendi.
-2. **.NET 10 API & Veritabanı Migration:**
-   * `FileUploadedEvent.cs`: `Model` ve `ApiKey` alanları eklendi.
-   * `AnalysisCompletedEvent.cs` & `AnalysisReport.cs`: `ModelUsed` alanı eklendi.
-   * EF Core Migration: `dotnet ef migrations add AddModelUsedToAnalysisReport` oluşturuldu ve `dotnet ef database update` ile PostgreSQL veritabanına uygulandı.
-   * `DocumentDtos.cs` & `DocumentService.cs`: `UploadAndQueueDocumentAsync` ve `UploadAndQueueZipAsync` metotlarına `model` ve `apiKey` parametreleri eklendi, DTO eşlemelerine `ModelUsed` dahil edildi.
-   * `DocumentController.cs`: `[FromForm] string? model = "llama3"` ve `[FromForm] string? apiKey = null` parametreleri form yükleme uç noktasına eklendi.
-   * `AnalysisResultBackgroundService.cs`: Gelen analiz sonucundaki `ModelUsed` verisi PostgreSQL'e yazıldı ve SignalR üzerinden istemcilere iletildi.
-3. **Frontend BYOK (Bring Your Own Key) Arayüzü & Durum Yönetimi:**
-   * `ModelSelector.tsx`: Siberpunk temalı, Llama 3 (Yerel & Ücretsiz), OpenAI GPT-4o (BYOK) ve Claude 3.5 Sonnet (BYOK) seçeneklerini içeren seçim kartları ve şifreli API anahtarı giriş alanı geliştirildi. Anahtarlar kullanıcının tarayıcısında `localStorage` içerisinde güvenle saklanır.
-   * `DragDropArea.tsx`: `ModelSelector` bileşeni entegre edildi, yükleme öncesi model ve anahtar validasyonu sağlandı.
-   * `documentService.ts`: `uploadDocumentAsync(file, model, apiKey, onProgress)` imzası güncellendi.
-   * `AnalysisContext.tsx`: `selectedModel` ve `modelUsed` durumları SignalR ve oturum saklayıcısına eklendi.
-   * `LoadingTerminal.tsx`, `CodeDiffViewer.tsx`, `AnalysisHistoryTable.tsx` ve `dashboard/page.tsx`: Analizde kullanılan modeli gösteren dinamik rozetler ve ikonlar (`🦙 Llama 3`, `⚡ GPT-4o`, `🧠 Claude 3.5 Sonnet`) entegre edildi.
+1. **Zero-Disk Ephemeral Key Vault Mimarisi (.NET 10 API):**
+   * Kullanıcının girdiği API anahtarlarının Kafka mesaj kuyruğunda açık metin (plain-text) olarak saklanmasının ve diske kaydedilmesinin yarattığı güvenlik riski çözüldü.
+   * `ITempKeyVaultService` ve `TempKeyVaultService` (`IMemoryCache`) geliştirildi: Gelen API anahtarı sunucunun RAM belleğinde 90 saniyelik kendini imha süresiyle (TTL) tutularak rastgele bir `KeyToken` (bilet) üretildi.
+   * `FileUploadedEvent` sınıfından `ApiKey` tamamen silinerek yerine `KeyToken` geçirildi; Kafka broker'ında sıfır açık anahtar izolasyonu sağlandı.
+   * `POST /api/internal/keys/consume` dahili uç noktası ile Python AI Worker'ın yalnızca analiz anında anahtarı RAM'e çekip kullanması sağlandı.
+2. **Python AI Worker Genişletilmiş LLM Ekosistemi (`CodeMind.AIWorker`):**
+   * `langchain-google-genai` ve `langchain-groq` paketleri yüklendi.
+   * `ai_service.py` içerisine `resolve_ephemeral_api_key(key_token)` eklendi; anahtar dahili uç noktadan sadece RAM'e çekildi.
+   * Desteklenen 6 Model:
+     1. `Llama 3 8B (Yerel Ollama)` - Cihazda çevrimdışı, GPU hızlandırmalı (Ücretsiz)
+     2. `Qwen 2.5 Coder 7B (Yerel Ollama)` - Siber güvenlik ve kodlamada lider model (Ücretsiz)
+     3. `Google Gemini 1.5 Flash (Entegre Bulut)` - 1M Token bağlam, Google AI Studio Free Tier (Ücretsiz)
+     4. `Groq Llama 3.3 70B (Entegre Bulut)` - 300+ token/saniye ultra hızlı LPU çıkarımı (Ücretsiz)
+     5. `OpenAI GPT-4o` - BYOK (Kendi anahtarıyla)
+     6. `Anthropic Claude 3.5 Sonnet` - BYOK (Kendi anahtarıyla)
+3. **Frontend ModelSelector & Ephemeral RAM Vault Arayüzü:**
+   * `ModelSelector.tsx` sekmeli filtreleme ile güncellendi: "Tümü (6)", "🎁 Ücretsiz & Hazır (4)" ve "🔑 Kendi Keyiniz (2)".
+   * Ücretsiz modeller seçildiğinde API anahtarı alanı otomatik gizlenir.
+   * BYOK modelleri seçildiğinde "Ephemeral RAM Vault Korumalı (Diske Yazılmaz)" güvenlik bilgilendirmesi ve şifreli giriş kutusu sunulur.
+   * `LoadingTerminal`, `CodeDiffViewer` ve `AnalysisHistoryTable` bileşenlerine 6 model için dinamik rozetler ve ikonlar entegre edildi.
 
 #### 🧪 Doğrulama ve Test
 * .NET API derlemesi (`dotnet build src/CodeMind.Api/CodeMind.Api.csproj`): **0 hata, 0 uyarı**.
 * Next.js derlemesi (`npm run build`): **0 hata** (TypeScript ve Turbopack derlemesi 9/9 sayfa başarıyla tamamlandı).
-* PostgreSQL migration'ı Docker konteynerindeki veritabanına başarıyla uygulandı (`20260927142415_AddModelUsedToAnalysisReport`).
-* Python ortamında `langchain_openai` ve `langchain_anthropic` import testleri başarıyla doğrulandı.
+* Python ortamında `langchain_google_genai` ve `langchain_groq` import ve sözdizimi testleri başarıyla doğrulandı.

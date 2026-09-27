@@ -29,6 +29,9 @@ export function LoadingTerminal() {
   const progressPercent = Math.min(100, Math.round((completedCount / totalFilesCount) * 100))
 
   const activeModelLabel = latestResult?.modelUsed || (
+    session.selectedModel === "gemini-1.5-flash" ? "Gemini 1.5 Flash" :
+    session.selectedModel === "groq-llama3-70b" ? "Groq Llama 3.3 70B" :
+    session.selectedModel === "qwen2.5-coder" ? "Qwen 2.5 Coder" :
     session.selectedModel === "gpt-4o" ? "OpenAI GPT-4o" :
     session.selectedModel === "claude-3-5-sonnet" ? "Claude 3.5 Sonnet" :
     "Llama 3"
@@ -129,7 +132,7 @@ export function LoadingTerminal() {
         className="h-80 overflow-y-auto p-5 font-mono text-xs space-y-2.5 bg-[#05060a] scroll-smooth"
       >
         <p className="text-zinc-500">
-          # CodeMind AI Daemon v1.0.0 (x86_64-win-dotnet10) - Canlı Olay Akışı
+          # Canlı Güvenlik Analizi & İşlem Akışı
         </p>
 
         {logs.map((log) => (
@@ -145,8 +148,8 @@ export function LoadingTerminal() {
             <span className="h-2 w-2 rounded-full bg-cyan-400" />
             <span className="text-xs">
               {isZipMode
-                ? `Dosyalar Llama 3 tarafından taranıyor (${completedCount}/${totalFilesCount})...`
-                : "Kafka kuyruğu ve SignalR WebSocket sinyali dinleniyor..."}
+                ? `Dosyalar analiz ediliyor (${completedCount}/${totalFilesCount})...`
+                : "Yapay zeka güvenlik analizi yapılıyor..."}
             </span>
           </div>
         )}
@@ -160,7 +163,7 @@ export function LoadingTerminal() {
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
                 <span className="font-semibold text-white text-sm">
-                  {isZipMode ? `Proje Taraması Tamamlandı! (${totalFilesCount} Dosya)` : "Gerçek Analiz Raporu Hazır!"}
+                  {isZipMode ? `Proje Taraması Tamamlandı! (${totalFilesCount} Dosya)` : "Analiz Raporu Hazır!"}
                 </span>
                 {latestResult && (
                   <Badge variant={latestResult.severity?.toLowerCase().includes("kritik") ? "destructive" : "success"}>
@@ -170,7 +173,7 @@ export function LoadingTerminal() {
               </div>
               <p className="text-xs text-zinc-400 line-clamp-2 max-w-xl">
                 {isZipMode
-                  ? `'${batchInfo?.projectName}' projesindeki tüm dosyalar PgVector'a işlendi ve güvenlik yamaları oluşturuldu.`
+                  ? `'${batchInfo?.projectName}' projesindeki tüm dosyalar tarandı ve güvenlik raporu oluşturuldu.`
                   : (latestResult?.aiSuggestion || "Analiz başarıyla tamamlandı.")}
               </p>
             </div>
@@ -221,8 +224,8 @@ export function LoadingTerminal() {
       ) : (
         /* While analyzing or waiting, provide an explicit reset/cancel button if needed */
         <div className="border-t border-white/5 bg-[#090b12] px-4 py-2.5 flex items-center justify-between text-xs text-zinc-400">
-          <span className="font-mono text-[11px] text-zinc-500">
-            Sayfa değiştirseniz dahi analiz arka planda devam eder ve loglar korunur.
+          <span className="text-[11px] text-zinc-400">
+            Analiz arka planda devam eder, istediğiniz zaman diğer sayfalara geçebilirsiniz.
           </span>
           <Button
             variant="ghost"

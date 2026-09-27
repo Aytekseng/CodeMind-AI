@@ -33,6 +33,7 @@ public class DocumentService : IDocumentService
     private readonly IMessageProducer _kafkaProducer;
     private readonly AppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ITempKeyVaultService _tempKeyVaultService;
     private readonly ILogger<DocumentService> _logger;
 
     public DocumentService(
@@ -40,12 +41,14 @@ public class DocumentService : IDocumentService
         IMessageProducer kafkaProducer,
         AppDbContext dbContext,
         ICurrentUserService currentUserService,
+        ITempKeyVaultService tempKeyVaultService,
         ILogger<DocumentService> logger)
     {
         _minIOService = minIOService;
         _kafkaProducer = kafkaProducer;
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _tempKeyVaultService = tempKeyVaultService;
         _logger = logger;
     }
 
@@ -104,7 +107,12 @@ public class DocumentService : IDocumentService
             _dbContext.Documents.Add(document);
             await _dbContext.SaveChangesAsync();
 
-            // 3. Kafka'ya mesaj gönder
+            // 3. Ephemeral In-Memory Token Vault: API anahtarı sadece RAM'e alınıp bilet üretilir, Kafka'ya asla açık key yazılmaz!
+            string? keyToken = !string.IsNullOrWhiteSpace(apiKey)
+                ? _tempKeyVaultService.StoreKey(apiKey)
+                : null;
+
+            // Kafka'ya mesaj gönder
             var eventMessage = new
             {
                 FileId = document.Id,
@@ -113,12 +121,12 @@ public class DocumentService : IDocumentService
                 UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
                 TenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId.ToString() : tenant.Id.ToString(),
                 Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
-                ApiKey = apiKey ?? ""
+                KeyToken = keyToken
             };
 
             await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı. DocumentId: {DocumentId}, FileName: {FileName}, Model: {Model}, UserId: {UserId}", 
-                document.Id, fileName, eventMessage.Model, eventMessage.UploadedByUserId);
+            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı (Ephemeral Token: {HasToken}). DocumentId: {DocumentId}, FileName: {FileName}, Model: {Model}", 
+                keyToken != null, document.Id, fileName, eventMessage.Model);
 
             // 4. Standart ApiResponse formatında dön
             var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
@@ -221,6 +229,11 @@ public class DocumentService : IDocumentService
             var extractedNames = new List<string>();
             var documentIds = new List<Guid>();
 
+            // Ephemeral In-Memory Token Vault: Tüm zip paketi için tek bir bilet üretilir (5 dk TTL)
+            string? zipKeyToken = !string.IsNullOrWhiteSpace(apiKey)
+                ? _tempKeyVaultService.StoreKey(apiKey, TimeSpan.FromMinutes(5))
+                : null;
+
             for (int i = 0; i < validEntries.Count; i++)
             {
                 var entry = validEntries[i];
@@ -258,7 +271,7 @@ public class DocumentService : IDocumentService
                     BatchIndex = i + 1,
                     ProjectId = project.Id.ToString(),
                     Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
-                    ApiKey = apiKey ?? ""
+                    KeyToken = zipKeyToken
                 };
 
                 await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);

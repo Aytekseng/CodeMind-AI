@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Çoklu Model (Cloud LLM) Varsayılan API Anahtarları (İsteğe Bağlı)
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    INTERNAL_API_URL: str = "http://localhost:5083"
 
     class Config:
         env_file = "../../.env"  # Points to the root .env file

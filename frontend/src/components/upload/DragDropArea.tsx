@@ -94,6 +94,25 @@ export function DragDropArea() {
     }
   }
 
+  React.useEffect(() => {
+    const updateModelFromStorage = () => {
+      const savedModel = localStorage.getItem("codemind_selected_model") || "llama3"
+      setSelectedModel(savedModel)
+      const modelObj = AVAILABLE_MODELS.find((m) => m.id === savedModel)
+      if (modelObj?.requiresApiKey && modelObj.keyStorageKey) {
+        setApiKey(localStorage.getItem(modelObj.keyStorageKey) || "")
+      } else {
+        setApiKey("")
+      }
+    }
+
+    updateModelFromStorage()
+    window.addEventListener("focus", updateModelFromStorage)
+    return () => window.removeEventListener("focus", updateModelFromStorage)
+  }, [])
+
+  const currentModel = AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0]
+
   const handleStartAnalysis = async () => {
     if (!selectedFile) return
 
@@ -109,7 +128,12 @@ export function DragDropArea() {
 
     const modelObj = AVAILABLE_MODELS.find((m) => m.id === selectedModel)
     if (modelObj?.requiresApiKey && !apiKey.trim()) {
-      toast.error(`${modelObj.name} ile analiz yapabilmek için lütfen geçerli bir API anahtarı girin.`)
+      toast.error(`${modelObj.name} modelini kullanabilmek için lütfen Ayarlar sayfasından API anahtarınızı girin.`, {
+        action: {
+          label: "Ayarlar",
+          onClick: () => router.push("/settings"),
+        },
+      })
       return
     }
 
@@ -148,16 +172,26 @@ export function DragDropArea() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Model Seçim Paneli (Yalnızca analiz çalışmıyorken gösterilir) */}
+    <div className="space-y-4">
+      {/* Aktif Model Bilgisi ve Ayarlara Yönlendirme (Yalnızca analiz çalışmıyorken gösterilir) */}
       {!session.isAnalyzing && (
-        <div className="rounded-2xl border border-white/10 bg-[#080a11]/80 backdrop-blur-md p-4 sm:p-5 shadow-xl">
-          <ModelSelector
-            selectedModel={selectedModel}
-            onSelectModel={setSelectedModel}
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
-          />
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0c0e17] px-4 py-2.5 text-xs shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400">Analiz Motoru:</span>
+            <span className="font-semibold text-white flex items-center gap-1.5">
+              <span>{currentModel.icon}</span>
+              <span>{currentModel.name}</span>
+            </span>
+            <span className="text-[11px] text-zinc-500 font-mono">({currentModel.provider})</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/settings")}
+            className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors text-xs font-medium cursor-pointer flex items-center gap-1"
+          >
+            <span>Modeli Değiştir</span>
+            <span>→</span>
+          </button>
         </div>
       )}
 
