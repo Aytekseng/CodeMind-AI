@@ -4,8 +4,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/context/AuthContext"
 import { AnalysisProvider } from "@/context/AnalysisContext"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { Header } from "@/components/layout/Header"
+import { SidebarProvider } from "@/context/SidebarContext"
+import { AppLayout } from "@/components/layout/AppLayout"
 import { Toaster } from "sonner"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -32,20 +32,11 @@ export default function RootLayout({
         >
           <AuthProvider>
             <AnalysisProvider>
-              <div className="relative flex min-h-screen">
-                {/* Left Sidebar */}
-                <Sidebar />
-
-                {/* Main Content Area */}
-                <div className="flex flex-1 flex-col pl-72">
-                  <Header />
-                  <main className="flex-1 p-8 bg-[#07080c] min-h-[calc(100vh-4.5rem)]">
-                    {children}
-                  </main>
-                </div>
-              </div>
-              {/* Sonner Global Toast Notifications */}
-              <Toaster theme="dark" position="bottom-right" richColors />
+              <SidebarProvider>
+                <AppLayout>{children}</AppLayout>
+                {/* Sonner Global Toast Notifications */}
+                <Toaster theme="dark" position="bottom-right" richColors />
+              </SidebarProvider>
             </AnalysisProvider>
           </AuthProvider>
         </ThemeProvider>

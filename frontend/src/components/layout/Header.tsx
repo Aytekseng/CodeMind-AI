@@ -59,6 +59,28 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  const [activeModel, setActiveModel] = React.useState<{ name: string; icon: string }>({
+    name: "Llama 3 8B",
+    icon: "🦙"
+  })
+
+  // Synchronize active model from localStorage
+  React.useEffect(() => {
+    const updateActiveModel = () => {
+      const saved = localStorage.getItem("codemind_selected_model") || "llama3"
+      if (saved === "gemini-1.5-flash") setActiveModel({ name: "Gemini 1.5 Flash", icon: "⚡" })
+      else if (saved === "groq-llama3-70b") setActiveModel({ name: "Groq Llama 3.3", icon: "🚀" })
+      else if (saved === "qwen2.5-coder") setActiveModel({ name: "Qwen 2.5 Coder", icon: "💻" })
+      else if (saved === "gpt-4o") setActiveModel({ name: "OpenAI GPT-4o", icon: "🧠" })
+      else if (saved === "claude-3-5-sonnet") setActiveModel({ name: "Claude 3.5 Sonnet", icon: "🛡️" })
+      else setActiveModel({ name: "Llama 3 8B", icon: "🦙" })
+    }
+
+    updateActiveModel()
+    window.addEventListener("focus", updateActiveModel)
+    return () => window.removeEventListener("focus", updateActiveModel)
+  }, [])
+
   const handleToggleNotif = () => {
     setIsNotifOpen((prev) => !prev)
     if (!isNotifOpen) {
@@ -85,16 +107,18 @@ export function Header() {
         </div>
         <div>
           <h1 className="text-sm font-semibold text-white">Yapay Zeka Destekli Siber Güvenlik & Kod Analizi</h1>
-          <p className="text-xs text-zinc-400">RAG Tabanlı Otomatik Kod İnceleme ve Açık Tespiti</p>
+          <p className="text-xs text-zinc-400">Otomatik Kod İnceleme ve Güvenlik Açığı Tespiti</p>
         </div>
       </div>
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        <Badge variant="outline" className="gap-1.5 py-1 px-3 border-cyan-500/30 bg-cyan-500/5 text-cyan-300 hidden sm:inline-flex">
-          <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-          <span>Llama 3 8B RAG Aktif</span>
-        </Badge>
+        <Link href="/settings" title="Modeli değiştirmek için tıklayın">
+          <Badge variant="outline" className="gap-1.5 py-1 px-3 border-cyan-500/30 bg-cyan-500/5 text-cyan-300 hidden sm:inline-flex hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-colors cursor-pointer">
+            <span>{activeModel.icon}</span>
+            <span>{activeModel.name} Aktif</span>
+          </Badge>
+        </Link>
 
         {/* Notifications Bell Dropdown */}
         <div className="relative" ref={notifDropdownRef}>

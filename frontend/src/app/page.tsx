@@ -60,15 +60,15 @@ export default function Home() {
         <div className="relative z-10 max-w-2xl space-y-4">
           <Badge variant="default" className="gap-1.5 py-1 px-3">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>CodeMind AI v1.0 Production Ready</span>
+            <span>Yapay Zeka Destekli Kod Analizi</span>
           </Badge>
 
           <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             Kaynak Kodlarınızı <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Yapay Zeka ile Denetleyin</span>
           </h1>
 
-          <p className="text-sm leading-relaxed text-zinc-400">
-            C#, Python, JavaScript ve daha fazlası. Kod dosyalarınızı yükleyin; mikroservis tabanlı AI işçimiz (Llama 3 8B) güvenlik açıklarını, performans darboğazlarını ve mimari hataları saniyeler içinde tespit etsin.
+          <p className="text-sm leading-relaxed text-zinc-300">
+            Yazdığınız kodları veya tüm proje arşivinizi (.zip) yükleyin; yapay zeka modellerimiz güvenlik açıklarını, mantık hatalarını ve performans darboğazlarını saniyeler içinde tespit edip pratik çözüm önerileriyle birlikte raporlasın.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -78,7 +78,7 @@ export default function Home() {
             </Button>
             <Link href="/dashboard">
               <Button variant="outline" size="lg" className="gap-2 cursor-pointer">
-                <span>Mimari Raporunu İncele</span>
+                <span>Raporları İncele</span>
                 <ArrowRight className="h-4 w-4 text-cyan-400" />
               </Button>
             </Link>
@@ -92,9 +92,9 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Kod Dosyası Yükleme</h2>
-            <p className="text-xs text-zinc-400">Tekil kod dosyanızı (.cs, .py, .js, .ts vb.) analiz için bırakın veya seçin.</p>
+            <p className="text-xs text-zinc-400">Tekil kod dosyanızı veya tüm proje arşivinizi (.zip) yükleyin.</p>
           </div>
-          <Badge variant="success" className="text-xs">Sürükle-Bırak & Otomatik AI Analizi</Badge>
+          <Badge variant="success" className="text-xs">Otomatik AI Analizi</Badge>
         </div>
 
         {/* Interactive Drag & Drop Area */}
@@ -103,38 +103,38 @@ export default function Home() {
 
       {/* Feature Highlights */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <Card className="glass-panel glass-panel-hover">
+        <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="space-y-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
               <ShieldAlert className="h-4 w-4" />
             </div>
-            <CardTitle>Siber Güvenlik Açığı Tespiti</CardTitle>
-            <CardDescription>
-              SQL Injection, XSS, Hardcoded Secret ve OWASP Top 10 zafiyetlerini anında yakalar.
+            <CardTitle className="text-base text-white">Derin Güvenlik Taraması</CardTitle>
+            <CardDescription className="text-xs text-zinc-400 leading-relaxed">
+              Kodunuzdaki gizli güvenlik açıklarını, sızdırılmış anahtarları ve potansiyel siber riskleri üretime çıkmadan önce yakalayın.
             </CardDescription>
           </CardHeader>
         </Card>
 
-        <Card className="glass-panel glass-panel-hover">
+        <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="space-y-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               <Cpu className="h-4 w-4" />
             </div>
-            <CardTitle>PgVector & RAG Mimarisi</CardTitle>
-            <CardDescription>
-              Kodunuz vektörel parçalara bölünür ve Llama 3 8B ile derin anlamsal bağlam kurulur.
+            <CardTitle className="text-base text-white">Akıllı Kod İyileştirme</CardTitle>
+            <CardDescription className="text-xs text-zinc-400 leading-relaxed">
+              Yalnızca hataları bulmakla kalmaz; kodunuzu daha temiz, hızlı ve güvenli hale getirecek doğrudan uygulanabilir çözüm önerileri sunar.
             </CardDescription>
           </CardHeader>
         </Card>
 
-        <Card className="glass-panel glass-panel-hover">
+        <Card className="glass-panel glass-panel-hover border-white/10">
           <CardHeader className="space-y-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <CheckCircle2 className="h-4 w-4" />
             </div>
-            <CardTitle>Olay Güdümlü & SignalR</CardTitle>
-            <CardDescription>
-              Apache Kafka kuyruk yapısı ve SignalR WebSockets ile anlık canlı bildirimler.
+            <CardTitle className="text-base text-white">Anlık Canlı Sonuçlar</CardTitle>
+            <CardDescription className="text-xs text-zinc-400 leading-relaxed">
+              Dosyanızı yüklediğiniz anda analiz adımlarını canlı olarak izleyin; tarama bittiğinde kapsamlı raporunuza anında ulaşın.
             </CardDescription>
           </CardHeader>
         </Card>
