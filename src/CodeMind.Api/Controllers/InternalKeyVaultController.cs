@@ -32,6 +32,6 @@ public class InternalKeyVaultController : ControllerBase
             return NotFound(new { Message = "Key not found or expired" });
         }
 
-        return Ok(new { ApiKey = apiKey });
+        return Ok(new { ApiKey = apiKey, apiKey = apiKey });
     }
 }

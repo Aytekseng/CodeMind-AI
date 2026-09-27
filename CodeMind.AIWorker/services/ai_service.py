@@ -50,8 +50,11 @@ def resolve_ephemeral_api_key(key_token: str) -> str:
         resp = requests.post(url, json={"KeyToken": key_token}, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            api_key = data.get("ApiKey", "")
-            print(f"[AI Service] 🔑 Ephemeral API Key başarıyla RAM'e çekildi (Token: {key_token[:8]}...)")
+            api_key = data.get("ApiKey") or data.get("apiKey") or data.get("key") or ""
+            if api_key:
+                print(f"[AI Service] 🔑 Ephemeral API Key başarıyla RAM'e çekildi (Token: {key_token[:8]}..., Uzunluk: {len(api_key)} karakter)")
+            else:
+                print(f"[AI Service] ⚠️ Kasadan anahtar çözülemedi (Boş yanıt alındı)")
             return api_key
         else:
             print(f"[AI Service] ⚠️ Geçici bilet doğrulanamadı ({resp.status_code}): {key_token}")
