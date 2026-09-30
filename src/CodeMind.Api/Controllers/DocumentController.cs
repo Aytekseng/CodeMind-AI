@@ -25,6 +25,12 @@ public class DocumentController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] string? model = "llama3", [FromForm] string? apiKey = null)
     {
+        if (User.IsInRole("Auditor"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, 
+                ApiResponse<string>.Fail("Güvenlik Denetçisi (Auditor) rolündeki kullanıcıların kod yükleme ve analiz başlatma yetkisi bulunmamaktadır. Yalnızca raporları inceleyebilirsiniz."));
+        }
+
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi veya boş dosya.", "Lütfen geçerli bir dosya seçin."));
 

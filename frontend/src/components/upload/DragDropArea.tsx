@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { UploadCloud, AlertCircle } from "lucide-react"
+import { UploadCloud, AlertCircle, Lock, Eye, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
 import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
@@ -20,7 +20,7 @@ const MAX_ZIP_FILE_SIZE_MB = 50
 
 export function DragDropArea() {
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { session, startAnalysis, setUploadSuccess, setUploadError, resetAnalysis } = useAnalysis()
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
@@ -126,8 +126,18 @@ export function DragDropArea() {
       return
     }
 
-    const modelObj = AVAILABLE_MODELS.find((m) => m.id === selectedModel)
-    if (modelObj?.requiresApiKey && !apiKey.trim()) {
+    if (user?.role === "Auditor") {
+      toast.error("Denetçi (Auditor) rolündeki kullanıcılar yeni kod yükleyemez veya analiz başlatamaz.")
+      return
+    }
+
+    const currentModelId = localStorage.getItem("codemind_selected_model") || selectedModel || "llama3"
+    const modelObj = AVAILABLE_MODELS.find((m) => m.id === currentModelId) || AVAILABLE_MODELS[0]
+    const storedKey = (modelObj.requiresApiKey && modelObj.keyStorageKey)
+      ? (localStorage.getItem(modelObj.keyStorageKey) || apiKey)
+      : apiKey
+
+    if (modelObj.requiresApiKey && !storedKey?.trim()) {
       toast.error(`${modelObj.name} modelini kullanabilmek için lütfen Ayarlar sayfasından API anahtarınızı girin.`, {
         action: {
           label: "Ayarlar",
@@ -138,12 +148,12 @@ export function DragDropArea() {
     }
 
     setIsLocalUploading(true)
-    startAnalysis(selectedFile.name, selectedModel)
+    startAnalysis(selectedFile.name, currentModelId)
 
     try {
-      const effectiveApiKey = modelObj?.requiresApiKey ? (apiKey.trim() || undefined) : undefined
-      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${selectedModel}, HasKey: ${Boolean(effectiveApiKey)})`)
-      const response = await uploadDocumentAsync(selectedFile, selectedModel, effectiveApiKey)
+      const effectiveApiKey = modelObj.requiresApiKey ? (storedKey?.trim() || undefined) : undefined
+      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${currentModelId}, HasKey: ${Boolean(effectiveApiKey)})`)
+      const response = await uploadDocumentAsync(selectedFile, currentModelId, effectiveApiKey)
       console.log("[DragDropArea] API Yanıtı:", response)
 
       if (response && response.isSuccess) {
@@ -170,6 +180,38 @@ export function DragDropArea() {
     } finally {
       setIsLocalUploading(false)
     }
+  }
+
+  if (user?.role === "Auditor") {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-[#120f0a] p-10 text-center shadow-lg">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.15)] mb-4">
+            <Lock className="h-8 w-8" />
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 mb-2">
+            <Eye className="h-3.5 w-3.5" />
+            <span>Salt Okunur Denetçi (Auditor) Modu</span>
+          </div>
+          <h3 className="text-lg font-semibold text-white mt-1">
+            Kod Yükleme & Analiz Kısıtlaması
+          </h3>
+          <p className="mt-2 text-xs text-zinc-400 max-w-md leading-relaxed">
+            Hesabınız şirket çalışma alanında <span className="text-amber-300 font-medium">Denetçi (Auditor)</span> yetkisine sahiptir. Kurumsal güvenlik politikası gereği denetçiler kaynak kod yükleyemez veya yeni analiz başlatamaz.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/projects")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2.5 text-xs font-semibold shadow-lg shadow-cyan-900/30 transition-all cursor-pointer"
+            >
+              <span>Mevcut Raporları İncele</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

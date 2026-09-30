@@ -12,7 +12,7 @@ Bu rehber, sistemde desteklenen tüm yapay zeka modelleri için API anahtarları
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | **🦙 Llama 3 8B** | Meta / Ollama | Yerel (Cihazınızda) | **Tamamen Ücretsiz** | ❌ Hayır | Otomatik / Yerel Ollama |
 | **💻 Qwen 2.5 Coder 7B** | Alibaba / Ollama | Yerel (Cihazınızda) | **Tamamen Ücretsiz** | ❌ Hayır | `ollama run qwen2.5-coder:7b` |
-| **⚡ Gemini 1.5 Flash** | Google Cloud | Bulut API | **Ücretsiz Tier (Cömert Limit)** | ✅ Evet | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| **⚡ Gemini 3.8 Flash** | Google Cloud | Bulut API | BYOK (Google AI Key / Free Tier) | ✅ Evet | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **🚀 Groq Llama 3.3 70B** | Groq LPU Cloud | Bulut API | **Ücretsiz Tier (300+ token/s)** | ✅ Evet | [Groq Cloud Console](https://console.groq.com/keys) |
 | **🧠 OpenAI GPT-4o** | OpenAI | Bulut API | Ücretli / BYOK | ✅ Evet | [OpenAI Platform](https://platform.openai.com/api-keys) |
 | **🛡️ Claude 3.5 Sonnet** | Anthropic | Bulut API | Ücretli / BYOK | ✅ Evet | [Anthropic Console](https://console.anthropic.com/settings/keys) |
@@ -41,12 +41,12 @@ Bu modeller doğrudan kendi bilgisayarınızın GPU / CPU gücünü kullanır. D
 
 ---
 
-## ⚡ 3. Ücretsiz Bulut Modelleri (API Key Nereden Alınır?)
+## ⚡ 3. Bulut Modelleri & API Anahtarları (BYOK)
 
-Aşağıdaki bulut servisleri geliştiricilere **ücretsiz API kullanım kotası** sunmaktadır. Kredi kartı zorunluluğu olmadan saniyeler içinde anahtar alabilirsiniz.
+Kendi API anahtarınızı (Bring Your Own Key) girerek dünyanın en güçlü bulut yapay zeka modelleriyle derinlemesine güvenlik ve kod denetimi yapabilirsiniz.
 
-### 1) ⚡ Google Gemini 1.5 Flash (1 Milyon Token Bağlam Penceresi)
-Google AI Studio, bireysel geliştiricilere dakikada 15 istek ve günde 1.500 isteğe kadar **tamamen ücretsiz** kullanım hakkı verir.
+### 1) ⚡ Google Gemini 3.8 Flash (Yeni Nesil Akıl Yürütme & Hızlı Çıkarım)
+Google AI Studio veya Google Cloud Console üzerinden alacağınız API anahtarıyla Google'ın en yeni 3.8 nesil Flash modelini kullanabilirsiniz (Google AI Studio yeni hesaplara ücretsiz geliştirici kotası da sağlamaktadır).
 
 **Adım Adım API Key Alma:**
 1. [Google AI Studio](https://aistudio.google.com/app/apikey) sayfasına gidin.
@@ -54,7 +54,7 @@ Google AI Studio, bireysel geliştiricilere dakikada 15 istek ve günde 1.500 is
 3. Mavi renkli **"Create API key"** (API Anahtarı Oluştur) butonuna tıklayın.
 4. Yeni bir proje seçin veya varsayılan projeyi onaylayıp anahtarı oluşturun.
 5. Oluşan anahtarı kopyalayın (`AIzaSy...` formatında başlar).
-6. CodeMind-AI arayüzünde **Ayarlar (`/settings`)** sayfasına girin, **Gemini 1.5 Flash** modelini seçin ve bu anahtarı yapıştırın.
+6. CodeMind-AI arayüzünde **Ayarlar (`/settings`)** sayfasına girin, **Gemini 3.8 Flash** modelini seçin ve bu anahtarı yapıştırın.
 
 ---
 

@@ -44,14 +44,14 @@ export const AVAILABLE_MODELS: ModelOption[] = [
 
   // 2. BULUT & KENDİ API ANAHTARINIZ (BYOK)
   {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
+    id: "gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
     category: "byok",
     provider: "Google Cloud",
-    badge: "Google AI (Ücretsiz Key)",
+    badge: "BYOK (Google AI Key)",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     icon: "⚡",
-    description: "Google AI Studio'dan alabileceğiniz ücretsiz API anahtarıyla 1M token bağlam ve ultra hızlı analiz.",
+    description: "Google AI Studio veya Google Cloud API anahtarınızla gelişmiş mantıksal denetim ve ultra hızlı analiz.",
     requiresApiKey: true,
     keyStorageKey: "codemind_gemini_api_key",
     keyPlaceholder: "AIzaSy...",
@@ -112,7 +112,8 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [activeTab, setActiveTab] = React.useState<"all" | "free" | "byok">("all")
   const [showKey, setShowKey] = React.useState<boolean>(false)
-  const currentModel = AVAILABLE_MODELS.find((m) => m.id === selectedModel) || AVAILABLE_MODELS[0]
+  const normalizedSelectedModel = selectedModel === "gemini-1.5-flash" ? "gemini-3.8-flash" : selectedModel
+  const currentModel = AVAILABLE_MODELS.find((m) => m.id === normalizedSelectedModel) || AVAILABLE_MODELS[0]
 
   // Automatically load saved API key from localStorage when model changes
   React.useEffect(() => {

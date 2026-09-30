@@ -12,5 +12,6 @@ public interface IAuthService
     Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterRequestDto requestDto);
     Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto requestDto);
     Task<ApiResponse<AuthResponseDto>> GetCurrentUserProfileAsync();
+    Task<ApiResponse<AuthResponseDto>> UpdateProfileAsync(UpdateProfileRequestDto requestDto);
 }
 

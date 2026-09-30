@@ -19,6 +19,9 @@ public class User : BaseEntity
     // Kullanıcının sistemdeki rolü (Admin, Developer vb.)
     public string Role { get; set; } = string.Empty;
 
+    // Geçici şifre ile oluşturulan kullanıcıların ilk girişte şifre değiştirmesini zorunlu kılar
+    public bool MustChangePassword { get; set; } = false;
+
     // Kullanıcının ait olduğu Şirket (Tenant) varlığı (N-1)
     public Tenant Tenant { get; set; } = null!;
 }

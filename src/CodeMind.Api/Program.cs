@@ -51,6 +51,7 @@ try
     builder.Services.AddScoped<IMessageProducer, KafkaProducer>();
     builder.Services.AddSingleton<IMinIOService, MinIOService>();
     builder.Services.AddScoped<IDocumentService, DocumentService>();
+    builder.Services.AddScoped<ITeamService, TeamService>();
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<IMessageConsumer, CodeMind.Infrastructure.Messaging.KafkaConsumer>();
     builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();

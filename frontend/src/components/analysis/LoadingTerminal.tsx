@@ -29,7 +29,7 @@ export function LoadingTerminal() {
   const progressPercent = Math.min(100, Math.round((completedCount / totalFilesCount) * 100))
 
   const activeModelLabel = latestResult?.modelUsed || (
-    session.selectedModel === "gemini-1.5-flash" ? "Gemini 1.5 Flash" :
+    (session.selectedModel === "gemini-3.8-flash" || session.selectedModel === "gemini-1.5-flash") ? "Gemini 3.8 Flash" :
     session.selectedModel === "groq-llama3-70b" ? "Groq Llama 3.3 70B" :
     session.selectedModel === "qwen2.5-coder" ? "Qwen 2.5 Coder" :
     session.selectedModel === "gpt-4o" ? "OpenAI GPT-4o" :

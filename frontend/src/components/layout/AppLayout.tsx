@@ -5,6 +5,7 @@ import { useSidebar } from "@/context/SidebarContext"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { cn } from "@/lib/utils"
+import { MandatoryPasswordChangeModal } from "@/components/auth/MandatoryPasswordChangeModal"
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar()
@@ -26,6 +27,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Zorunlu Şifre Değiştirme Modalı (Geçici şifre ile ilk giriş yapanlar için) */}
+      <MandatoryPasswordChangeModal />
     </div>
   )
 }

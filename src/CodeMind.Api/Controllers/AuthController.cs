@@ -46,5 +46,16 @@ public class AuthController : ControllerBase
 
         return Ok(response);
     }
+
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto requestDto)
+    {
+        var response = await _authService.UpdateProfileAsync(requestDto);
+        if (!response.IsSuccess)
+            return BadRequest(response);
+
+        return Ok(response);
+    }
 }
 

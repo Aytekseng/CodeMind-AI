@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { authService, AuthResponseData, LoginPayload, RegisterPayload } from "@/services/authService"
+import { authService, AuthResponseData, LoginPayload, RegisterPayload, UpdateProfilePayload } from "@/services/authService"
 
 interface AuthContextType {
   user: AuthResponseData | null
@@ -10,6 +10,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (payload: LoginPayload) => Promise<{ success: boolean; message?: string }>
   register: (payload: RegisterPayload) => Promise<{ success: boolean; message?: string }>
+  updateProfile: (payload: UpdateProfilePayload) => Promise<{ success: boolean; message?: string }>
   logout: () => void
   refreshUser: () => Promise<void>
 }
@@ -89,6 +90,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const updateProfile = useCallback(async (payload: UpdateProfilePayload) => {
+    try {
+      setIsLoading(true)
+      const res = await authService.updateProfile(payload)
+      if (res.isSuccess && res.data) {
+        const updatedToken = res.data.token || token
+        if (updatedToken) {
+          setToken(updatedToken)
+          setUser(res.data)
+          authService.setSession(updatedToken, res.data)
+        }
+        return { success: true, message: res.message || "Profil başarıyla güncellendi!" }
+      }
+      return { success: false, message: res.message || "Profil güncellenemedi." }
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || err.message || "Güncelleme sırasında hata oluştu."
+      return { success: false, message: errMsg }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [token])
+
   const logout = useCallback(() => {
     authService.clearSession()
     setToken(null)
@@ -117,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         register,
+        updateProfile,
         logout,
         refreshUser,
       }}

@@ -10,5 +10,6 @@ public record AuthResponseDto
     public string TenantName { get; set; } = string.Empty;
     public Guid UserId { get; set; }
     public Guid TenantId { get; set; }
+    public bool MustChangePassword { get; set; } = false;
 }
 

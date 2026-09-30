@@ -66,7 +66,8 @@ public class AuthService : IAuthService
             Role = newUser.Role,
             TenantName = newTenant.Name,
             UserId = newUser.Id,
-            TenantId = newUser.TenantId
+            TenantId = newUser.TenantId,
+            MustChangePassword = false
         };
 
         return ApiResponse<AuthResponseDto>.Success(responseDto, "Kayıt işlemi başarıyla tamamlandı.");
@@ -99,7 +100,8 @@ public class AuthService : IAuthService
             Role = user.Role,
             TenantName = user.Tenant?.Name ?? "Şirket",
             UserId = user.Id,
-            TenantId = user.TenantId
+            TenantId = user.TenantId,
+            MustChangePassword = user.MustChangePassword
         };
 
         return ApiResponse<AuthResponseDto>.Success(responseDto, "Giriş başarılı.");
@@ -131,10 +133,107 @@ public class AuthService : IAuthService
             Role = user.Role,
             TenantName = user.Tenant?.Name ?? "Şirket",
             UserId = user.Id,
-            TenantId = user.TenantId
+            TenantId = user.TenantId,
+            MustChangePassword = user.MustChangePassword
         };
 
         return ApiResponse<AuthResponseDto>.Success(responseDto, "Profil bilgisi başarıyla getirildi.");
+    }
+
+    public async Task<ApiResponse<AuthResponseDto>> UpdateProfileAsync(UpdateProfileRequestDto requestDto)
+    {
+        var currentUserId = _currentUserService.UserId;
+        if (currentUserId == Guid.Empty)
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Geçerli bir kullanıcı oturumu bulunamadı.");
+        }
+
+        // 1. Temel Doğrulamalar
+        if (string.IsNullOrWhiteSpace(requestDto.FirstName) || string.IsNullOrWhiteSpace(requestDto.LastName))
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Ad ve soyad alanları boş bırakılamaz.");
+        }
+
+        if (string.IsNullOrWhiteSpace(requestDto.Email) || !requestDto.Email.Contains('@'))
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Lütfen geçerli bir e-posta adresi girin.");
+        }
+
+        // 2. Kullanıcıyı ve Şirketini bul
+        var user = await _context.Users
+            .Include(u => u.Tenant)
+            .FirstOrDefaultAsync(u => u.Id == currentUserId);
+
+        if (user == null)
+        {
+            return ApiResponse<AuthResponseDto>.Fail("Kullanıcı profili bulunamadı.");
+        }
+
+        // 3. E-posta adresi değiştiyse başka bir hesapta kullanımda mı kontrol et
+        var normalizedEmail = requestDto.Email.Trim().ToLowerInvariant();
+        if (!string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            var emailExists = await _context.Users
+                .IgnoreQueryFilters()
+                .AnyAsync(u => u.Email.ToLower() == normalizedEmail && u.Id != currentUserId);
+
+            if (emailExists)
+            {
+                return ApiResponse<AuthResponseDto>.Fail("Bu e-posta adresi başka bir kullanıcı tarafından kullanılmaktadır.");
+            }
+
+            user.Email = normalizedEmail;
+        }
+
+        // 4. İsim ve telefon bilgilerini güncelle
+        user.FirstName = requestDto.FirstName.Trim();
+        user.LastName = requestDto.LastName.Trim();
+        if (requestDto.PhoneNumber != null)
+        {
+            user.PhoneNumber = requestDto.PhoneNumber.Trim();
+        }
+
+        // 5. Şifre değiştirme talebi varsa doğrula ve güncelle
+        if (!string.IsNullOrWhiteSpace(requestDto.NewPassword))
+        {
+            if (string.IsNullOrWhiteSpace(requestDto.CurrentPassword))
+            {
+                return ApiResponse<AuthResponseDto>.Fail("Şifrenizi değiştirmek için lütfen mevcut şifrenizi girin.");
+            }
+
+            if (requestDto.NewPassword.Length < 6)
+            {
+                return ApiResponse<AuthResponseDto>.Fail("Yeni şifreniz en az 6 karakter uzunluğunda olmalıdır.");
+            }
+
+            bool isPasswordCorrect = BCrypt.Net.BCrypt.Verify(requestDto.CurrentPassword, user.PasswordHash);
+            if (!isPasswordCorrect)
+            {
+                return ApiResponse<AuthResponseDto>.Fail("Mevcut şifreniz hatalı.");
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(requestDto.NewPassword);
+            user.MustChangePassword = false;
+        }
+
+        await _context.SaveChangesAsync();
+
+        // 6. Güncellenmiş Claims içeren yeni bir JWT Token üret ve dön
+        var token = GenerateJwtToken(user);
+        var responseDto = new AuthResponseDto
+        {
+            Token = token,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            TenantName = user.Tenant?.Name ?? "Şirket",
+            UserId = user.Id,
+            TenantId = user.TenantId,
+            MustChangePassword = user.MustChangePassword
+        };
+
+        return ApiResponse<AuthResponseDto>.Success(responseDto, "Profil bilgileriniz başarıyla güncellendi.");
     }
 
     private string GenerateJwtToken(User user)
@@ -146,7 +245,8 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.GivenName, user.FirstName ?? string.Empty),
             new Claim(ClaimTypes.Surname, user.LastName ?? string.Empty),
-            new Claim(ClaimTypes.Role, user.Role ?? "Developer")
+            new Claim(ClaimTypes.Role, user.Role ?? "Developer"),
+            new Claim("MustChangePassword", user.MustChangePassword.ToString())
         };
 
         var secret = _config["JwtSettings:Secret"];

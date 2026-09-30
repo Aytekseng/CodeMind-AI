@@ -9,6 +9,7 @@ export interface UserProfile {
   role: string
   tenantName: string
   token?: string
+  mustChangePassword?: boolean
 }
 
 export interface LoginPayload {
@@ -25,6 +26,15 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface UpdateProfilePayload {
+  firstName: string
+  lastName: string
+  email: string
+  phoneNumber?: string
+  currentPassword?: string
+  newPassword?: string
+}
+
 export interface AuthResponseData {
   token: string
   email: string
@@ -34,6 +44,7 @@ export interface AuthResponseData {
   tenantName: string
   userId: string
   tenantId: string
+  mustChangePassword?: boolean
 }
 
 export const authService = {
@@ -47,6 +58,10 @@ export const authService = {
 
   getCurrentUser: async (): Promise<ApiResponse<AuthResponseData>> => {
     return await api.get<ApiResponse<AuthResponseData>>("/api/auth/me")
+  },
+
+  updateProfile: async (payload: UpdateProfilePayload): Promise<ApiResponse<AuthResponseData>> => {
+    return await api.put<ApiResponse<AuthResponseData>>("/api/auth/profile", payload)
   },
 
   setSession: (token: string, user: AuthResponseData) => {

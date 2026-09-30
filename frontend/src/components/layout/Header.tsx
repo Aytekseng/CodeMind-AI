@@ -68,7 +68,7 @@ export function Header() {
   React.useEffect(() => {
     const updateActiveModel = () => {
       const saved = localStorage.getItem("codemind_selected_model") || "llama3"
-      if (saved === "gemini-1.5-flash") setActiveModel({ name: "Gemini 1.5 Flash", icon: "⚡" })
+      if (saved === "gemini-3.8-flash" || saved === "gemini-1.5-flash") setActiveModel({ name: "Gemini 3.8 Flash", icon: "⚡" })
       else if (saved === "groq-llama3-70b") setActiveModel({ name: "Groq Llama 3.3", icon: "🚀" })
       else if (saved === "qwen2.5-coder") setActiveModel({ name: "Qwen 2.5 Coder", icon: "💻" })
       else if (saved === "gpt-4o") setActiveModel({ name: "OpenAI GPT-4o", icon: "🧠" })

@@ -8,6 +8,10 @@ import { AuthGuard } from "@/components/auth/AuthGuard"
 import { useAuth } from "@/hooks/useAuth"
 import { ModelSelector, AVAILABLE_MODELS } from "@/components/upload/ModelSelector"
 
+import { ProfileSettingsCard } from "@/components/settings/ProfileSettingsCard"
+import { TeamManagementCard } from "@/components/settings/TeamManagementCard"
+import { DangerZoneCard } from "@/components/settings/DangerZoneCard"
+
 export default function SettingsPage() {
   const { user } = useAuth()
   const [selectedModel, setSelectedModel] = React.useState<string>("llama3")
@@ -42,35 +46,11 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* User & Workspace Profile Card */}
-          {user && (
-            <Card className="glass-panel border-white/10">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-cyan-400" />
-                  <CardTitle className="text-sm font-semibold">Kullanıcı & Şirket Bilgileri</CardTitle>
-                </div>
-                <CardDescription className="text-xs">
-                  Hesabınıza bağlı şirket ve kullanıcı detayları
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                  <div>
-                    <p className="font-semibold text-white">{user.firstName} {user.lastName}</p>
-                    <p className="text-zinc-400 text-xs">{user.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-300">
-                      <Building2 className="h-3 w-3 mr-1" />
-                      {user.tenantName}
-                    </Badge>
-                    <Badge variant="success" className="text-xs">{user.role}</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* User & Workspace Profile Interactive Card */}
+          <ProfileSettingsCard />
+
+          {/* Team & Member Access Management Card (Only visible to Admin) */}
+          <TeamManagementCard />
 
           {/* Model Configuration Card */}
           <Card className="glass-panel border-white/10">
@@ -92,6 +72,9 @@ export default function SettingsPage() {
               />
             </CardContent>
           </Card>
+
+          {/* Critical Workspace & Data Offboarding (Only visible to Admin) */}
+          <DangerZoneCard />
         </div>
       </div>
     </AuthGuard>
