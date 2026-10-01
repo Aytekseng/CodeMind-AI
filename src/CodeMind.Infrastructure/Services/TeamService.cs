@@ -308,5 +308,103 @@ public class TeamService : ITeamService
             return ApiResponse<string>.Fail("Şirket silinirken beklenmeyen bir hata oluştu: " + ex.Message);
         }
     }
+
+    public async Task<ApiResponse<CompanyExportDto>> ExportCompanyDataAsync()
+    {
+        var tenantId = _currentUserService.TenantId;
+        var currentUserId = _currentUserService.UserId;
+
+        if (tenantId == Guid.Empty)
+        {
+            return ApiResponse<CompanyExportDto>.Fail("Geçerli bir şirket/çalışma alanı oturumu bulunamadı.");
+        }
+
+        var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId && u.TenantId == tenantId);
+        if (adminUser == null || adminUser.Role != Roles.Admin)
+        {
+            return ApiResponse<CompanyExportDto>.Fail("Şirket verilerini dışa aktarma yetkisi yalnızca Yöneticilere (Admin) aittir.");
+        }
+
+        var tenant = await _context.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId);
+        if (tenant == null)
+        {
+            return ApiResponse<CompanyExportDto>.Fail("Şirket kaydı bulunamadı.");
+        }
+
+        var users = await _context.Users
+            .Where(u => u.TenantId == tenantId)
+            .OrderBy(u => u.FirstName)
+            .Select(u => new CompanyUserExportDto
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                Role = u.Role
+            })
+            .ToListAsync();
+
+        var projects = await _context.Projects
+            .Where(p => p.TenantId == tenantId)
+            .Include(p => p.Documents)
+                .ThenInclude(d => d.AnalysisReports)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        var allDocuments = projects.SelectMany(p => p.Documents).ToList();
+        var allReports = allDocuments.SelectMany(d => d.AnalysisReports).ToList();
+
+        var exportDto = new CompanyExportDto
+        {
+            ExportMetadata = new ExportMetadataDto
+            {
+                ExportedAt = DateTime.UtcNow,
+                ExportedBy = $"{adminUser.FirstName} {adminUser.LastName} ({adminUser.Email})"
+            },
+            Company = new CompanyInfoDto
+            {
+                Id = tenant.Id,
+                Name = tenant.Name,
+                SubscriptionTier = tenant.SubscriptionTier.ToString()
+            },
+            Users = users,
+            Projects = projects.Select(p => new ProjectExportDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Language = p.Language,
+                Documents = p.Documents.Select(d => new DocumentExportDto
+                {
+                    Id = d.Id,
+                    FileName = d.FileName,
+                    StorageUrl = d.StorageUrl,
+                    Status = d.Status.ToString(),
+                    AnalysisReports = d.AnalysisReports.Select(r => new AnalysisReportExportDto
+                    {
+                        Id = r.Id,
+                        Severity = r.Severity,
+                        LineNumber = r.LineNumber,
+                        AiSuggestion = r.AiSuggestion,
+                        ModelUsed = r.ModelUsed ?? "Llama 3"
+                    }).ToList()
+                }).ToList()
+            }).ToList(),
+            Statistics = new CompanyExportStatsDto
+            {
+                TotalProjects = projects.Count,
+                TotalDocuments = allDocuments.Count,
+                TotalReports = allReports.Count,
+                CriticalCount = allReports.Count(r => r.Severity.Contains("Kritik", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Critical", StringComparison.OrdinalIgnoreCase)),
+                HighCount = allReports.Count(r => r.Severity.Contains("Yüksek", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("High", StringComparison.OrdinalIgnoreCase)),
+                MediumCount = allReports.Count(r => r.Severity.Contains("Orta", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Medium", StringComparison.OrdinalIgnoreCase)),
+                LowCount = allReports.Count(r => r.Severity.Contains("Düşük", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Low", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Güvenli", StringComparison.OrdinalIgnoreCase))
+            }
+        };
+
+        _logger.LogInformation("Şirket verileri dışa aktarıldı. TenantId: {TenantId}, Company: {Company}, ExecutedBy: {AdminEmail}",
+            tenantId, tenant.Name, adminUser.Email);
+
+        return ApiResponse<CompanyExportDto>.Success(exportDto, "Şirket verileri başarıyla hazırlandı.");
+    }
 }
 

@@ -76,6 +76,38 @@ export const api = {
   },
 
   /**
+   * Dosya İndirme (Blob olarak indirip otomatik dosya kaydetme tetikler)
+   */
+  downloadFile: async (url: string, fallbackFilename: string): Promise<string> => {
+    const response = await axiosInstance.get(url, {
+      responseType: "blob",
+    })
+
+    let filename = fallbackFilename
+    const disposition = response.headers["content-disposition"] as string | undefined
+    if (disposition && typeof disposition === "string" && disposition.includes("filename=")) {
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, "").trim()
+      }
+    }
+
+    const contentType = (response.headers["content-type"] as string | undefined) || "application/json"
+    const blob = new Blob([response.data], {
+      type: contentType,
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = downloadUrl
+    link.setAttribute("download", filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+    return filename
+  },
+
+  /**
    * Dosya Yükleme (Doğrudan Native XHR ile tarayıcı boundary'si garanti edilir)
    */
   upload: async <T>(

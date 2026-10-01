@@ -22,6 +22,11 @@ try
     // Kök dizindeki (root) .env dosyasını bulabilmesi için TraversePath kullanıyoruz
     DotNetEnv.Env.TraversePath().Load();
 
+    // QuestPDF Lisans ve Font Ayarları
+    QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+    QuestPDF.Settings.UseSystemFonts = true;
+    QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
+
     var builder = WebApplication.CreateBuilder(args);
 
     // Serilog'u ana Host logger olarak yapılandır (appsettings.json ve DI servislerini okur)
@@ -52,6 +57,7 @@ try
     builder.Services.AddSingleton<IMinIOService, MinIOService>();
     builder.Services.AddScoped<IDocumentService, DocumentService>();
     builder.Services.AddScoped<ITeamService, TeamService>();
+    builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<IMessageConsumer, CodeMind.Infrastructure.Messaging.KafkaConsumer>();
     builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();

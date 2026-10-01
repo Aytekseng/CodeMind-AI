@@ -522,6 +522,81 @@ public class DocumentService : IDocumentService
         }
     }
 
+    public async Task<ApiResponse<DocumentExportReportDto>> ExportDocumentReportJsonAsync(Guid documentId)
+    {
+        try
+        {
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var document = await query
+                .Include(d => d.Project)
+                    .ThenInclude(p => p.Tenant)
+                .Include(d => d.AnalysisReports)
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                return ApiResponse<DocumentExportReportDto>.Fail("Raporlanacak doküman bulunamadı veya erişim yetkiniz yok.");
+            }
+
+            var latestReport = document.AnalysisReports.FirstOrDefault();
+            string originalFileContent = await _minIOService.GetFileTextAsync(document.StorageUrl);
+            if (string.IsNullOrWhiteSpace(originalFileContent))
+            {
+                originalFileContent = latestReport?.OriginalCode ?? "// Analiz edilen dosya: " + document.FileName;
+            }
+
+            var companyName = document.Project?.Tenant?.Name ?? "CodeMind Security Workspace";
+
+            var exportDto = new DocumentExportReportDto
+            {
+                Metadata = new ExportReportMetaDto
+                {
+                    ExportedAt = DateTime.UtcNow,
+                    CompanyName = companyName,
+                    ProjectName = document.Project?.Name,
+                    System = "CodeMind-AI Automated Code Review",
+                    Version = "1.0.0"
+                },
+                Document = new DocumentInfoExportDto
+                {
+                    DocumentId = document.Id,
+                    FileName = document.FileName,
+                    Language = GetLanguageFromFileName(document.FileName),
+                    Status = document.Status.ToString(),
+                    UploadedAt = DateTime.UtcNow,
+                    OriginalCode = originalFileContent
+                },
+                Analysis = new AnalysisFindingExportDto
+                {
+                    Severity = latestReport?.Severity ?? "İnceleniyor",
+                    Score = CalculateScoreFromSeverity(latestReport?.Severity),
+                    ModelUsed = latestReport?.ModelUsed ?? "Llama 3",
+                    LineNumber = latestReport?.LineNumber ?? 0,
+                    VulnerableLines = latestReport != null && latestReport.LineNumber > 0
+                        ? new List<int> { latestReport.LineNumber }
+                        : new List<int>(),
+                    AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz raporu bulunamadı."
+                }
+            };
+
+            return ApiResponse<DocumentExportReportDto>.Success(exportDto, "Doküman raporu başarıyla hazırlandı.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Doküman JSON raporu dışa aktarılırken hata oluştu. DocumentId: {DocumentId}", documentId);
+            return ApiResponse<DocumentExportReportDto>.Fail(ex.Message, "Rapor dışa aktarılırken hata oluştu.");
+        }
+    }
+
     private static string GetLanguageFromFileName(string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();

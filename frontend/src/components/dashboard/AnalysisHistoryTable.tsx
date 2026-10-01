@@ -14,11 +14,13 @@ import {
   Sparkles,
   Copy,
   Check,
-  Filter
+  Filter,
+  Download
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DocumentHistoryItem, getHistoryAsync } from "@/services/documentService"
+import { toast } from "sonner"
+import { DocumentHistoryItem, getHistoryAsync, exportDocumentReportPdfAsync } from "@/services/documentService"
 
 interface AnalysisHistoryTableProps {
   records?: DocumentHistoryItem[]
@@ -32,6 +34,23 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
   const [selectedSeverity, setSelectedSeverity] = React.useState<string>("ALL")
   const [activeModalItem, setActiveModalItem] = React.useState<DocumentHistoryItem | null>(null)
   const [copied, setCopied] = React.useState<boolean>(false)
+  const [exportingId, setExportingId] = React.useState<string | null>(null)
+
+  const handleDownloadReport = async (e: React.MouseEvent, item: DocumentHistoryItem) => {
+    e.stopPropagation()
+    if (exportingId) return
+    try {
+      setExportingId(item.id)
+      const fileName = await exportDocumentReportPdfAsync(item.id, item.fileName)
+      toast.success("PDF Raporu indirildi!", {
+        description: `${fileName} başarıyla kaydedildi.`
+      })
+    } catch (err: any) {
+      toast.error(err?.message || "PDF indirilirken hata oluştu.")
+    } finally {
+      setExportingId(null)
+    }
+  }
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
@@ -258,6 +277,22 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="JSON Raporunu İndir"
+                        disabled={exportingId === item.id}
+                        onClick={(e) => handleDownloadReport(e, item)}
+                        className="h-7 text-[11px] gap-1 px-2 text-zinc-400 border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300"
+                      >
+                        {exportingId === item.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                        ) : (
+                          <Download className="h-3 w-3" />
+                        )}
+                        <span className="hidden sm:inline">İndir</span>
+                      </Button>
+
                       <Button
                         variant="outline"
                         size="sm"

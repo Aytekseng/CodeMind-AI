@@ -69,4 +69,38 @@ public class TeamController : ControllerBase
 
         return Ok(response);
     }
+
+    [HttpGet("export-data")]
+    public async Task<IActionResult> ExportData()
+    {
+        var response = await _teamService.ExportCompanyDataAsync();
+        if (!response.IsSuccess || response.Data == null)
+            return BadRequest(response);
+
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        };
+
+        var jsonBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(response.Data, jsonOptions);
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var fileName = $"codemind-company-export-{timestamp}.json";
+
+        return File(jsonBytes, "application/json", fileName);
+    }
+
+    [HttpGet("export-pdf")]
+    public async Task<IActionResult> ExportDataPdf([FromServices] IPdfExportService pdfExportService)
+    {
+        var response = await _teamService.ExportCompanyDataAsync();
+        if (!response.IsSuccess || response.Data == null)
+            return BadRequest(response);
+
+        var pdfBytes = pdfExportService.GenerateCompanyAuditReportPdf(response.Data);
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var fileName = $"codemind-company-audit-report-{timestamp}.pdf";
+
+        return File(pdfBytes, "application/pdf", fileName);
+    }
 }

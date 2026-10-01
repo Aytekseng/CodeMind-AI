@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, ShieldAlert, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick } from "lucide-react"
+import { ShieldCheck, ShieldAlert, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick, Download, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScoreRadarChart } from "@/components/dashboard/ScoreRadarChart"
@@ -12,6 +12,8 @@ import { CodeDiffViewer } from "@/components/analysis/CodeDiffViewer"
 import { AnalysisHistoryTable } from "@/components/dashboard/AnalysisHistoryTable"
 import { FileTreeExplorer } from "@/components/dashboard/FileTreeExplorer"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/useAuth"
+import { toast } from "sonner"
 import {
   DashboardStats,
   DocumentReportDetail,
@@ -19,10 +21,14 @@ import {
   getDashboardStatsAsync,
   getDocumentReportAsync,
   getProjectFilesAsync,
+  exportDocumentReportJsonAsync,
+  exportDocumentReportPdfAsync,
+  printDocumentReport,
 } from "@/services/documentService"
 
 function DashboardContent() {
   const searchParams = useSearchParams()
+  const { user } = useAuth()
   const docId = searchParams.get("docId")
   const projectId = searchParams.get("projectId")
 
@@ -31,6 +37,43 @@ function DashboardContent() {
   const [projectFiles, setProjectFiles] = React.useState<ProjectFile[]>([])
   const [selectedDocId, setSelectedDocId] = React.useState<string | null>(docId)
   const [loading, setLoading] = React.useState<boolean>(true)
+  const [isExportingJson, setIsExportingJson] = React.useState<boolean>(false)
+  const [isExportingPdf, setIsExportingPdf] = React.useState<boolean>(false)
+
+  const handleExportPdf = async () => {
+    if (!reportDetail || isExportingPdf) return
+    try {
+      setIsExportingPdf(true)
+      const fileName = await exportDocumentReportPdfAsync(reportDetail.documentId, reportDetail.fileName)
+      toast.success("PDF güvenlik raporu indirildi!", {
+        description: `${fileName} başarıyla kaydedildi.`
+      })
+    } catch (err: any) {
+      toast.error(err?.message || "PDF indirilirken hata oluştu.")
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
+
+  const handleExportJson = async () => {
+    if (!reportDetail || isExportingJson) return
+    try {
+      setIsExportingJson(true)
+      const fileName = await exportDocumentReportJsonAsync(reportDetail.documentId, reportDetail.fileName)
+      toast.success("Güvenlik raporu indirildi!", {
+        description: `${fileName} JSON dosyası olarak kaydedildi.`
+      })
+    } catch (err: any) {
+      toast.error(err?.message || "Rapor indirilirken hata oluştu.")
+    } finally {
+      setIsExportingJson(false)
+    }
+  }
+
+  const handlePrint = () => {
+    if (!reportDetail) return
+    printDocumentReport(reportDetail, user?.tenantName)
+  }
 
   // Seçili dokümanın raporunu yükle
   const loadReport = React.useCallback(async (id: string) => {
@@ -186,7 +229,7 @@ function DashboardContent() {
             </p>
           </div>
           {reportDetail && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {reportDetail.projectName && (
                 <Badge variant="secondary" className="text-xs font-mono text-cyan-300 bg-cyan-950/50 border-cyan-500/30">
                   📁 {reportDetail.projectName}
@@ -195,6 +238,44 @@ function DashboardContent() {
               <Badge variant="outline" className="text-xs font-mono uppercase">
                 {reportDetail.language}
               </Badge>
+              <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isExportingPdf}
+                onClick={handleExportPdf}
+                className="h-7 text-[11px] gap-1 px-3 text-cyan-300 border-cyan-500/40 bg-cyan-950/20 hover:bg-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.15)] font-semibold"
+              >
+                {isExportingPdf ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                ) : (
+                  <Download className="h-3 w-3 text-cyan-400" />
+                )}
+                <span>PDF İndir</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isExportingJson}
+                onClick={handleExportJson}
+                className="h-7 text-[11px] gap-1 px-2.5 text-zinc-300 border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300"
+              >
+                {isExportingJson ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                ) : (
+                  <Download className="h-3 w-3 text-zinc-400" />
+                )}
+                <span>JSON</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="h-7 text-[11px] gap-1 px-2.5 text-zinc-300 border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-300"
+              >
+                <Printer className="h-3 w-3 text-emerald-400" />
+                <span>Yazdır / Önizle</span>
+              </Button>
             </div>
           )}
         </div>

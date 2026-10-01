@@ -287,31 +287,38 @@ def process_uploaded_file(event_data: FileUploadedEvent):
         for chunk in chunks
     ]
 
-    # 3. Vektör kaydı ve analiz
-    try: 
+    # 3. Vektör kaydı ve RAG analizi
+    # Dosya uzantısından dili tespit et
+    ext = file_name.split('.')[-1].lower() if '.' in file_name else 'kod'
+    lang_map = {
+        'py': 'Python', 'cs': 'C# (.NET)', 'js': 'JavaScript', 'ts': 'TypeScript',
+        'java': 'Java', 'go': 'Go', 'cpp': 'C++', 'c': 'C', 'php': 'PHP', 'sql': 'SQL'
+    }
+    detected_language = lang_map.get(ext, ext.upper())
+    context = ""
+
+    try:
         vector_store = get_vector_store()
         vector_store.add_documents(documents)
         print(f"[AI Service] {len(chunks)} vektör başarıyla PgVector'a kaydedildi.")
 
-        # Dosya uzantısından dili tespit et
-        ext = file_name.split('.')[-1].lower() if '.' in file_name else 'kod'
-        lang_map = {
-            'py': 'Python', 'cs': 'C# (.NET)', 'js': 'JavaScript', 'ts': 'TypeScript',
-            'java': 'Java', 'go': 'Go', 'cpp': 'C++', 'c': 'C', 'php': 'PHP', 'sql': 'SQL'
-        }
-        detected_language = lang_map.get(ext, ext.upper())
-
-        # Genel kod analizi sorgusu
+        # Genel kod analizi sorgusu (RAG)
         query = f"Bu {detected_language} kod dosyasında herhangi bir güvenlik açığı, performans sorunu veya kötü kodlama pratiği (bad practice) var mı?"
         docs = vector_store.similarity_search(query, k=4)
-
         if docs:
             context = "\n\n".join([doc.page_content for doc in docs])
-            
-            # Dinamik Çoklu Model Yükleyici (Llama 3 / Qwen 2.5 / Gemini / Groq / GPT-4o / Claude)
-            llm, model_display_name = get_llm_instance(model_name, custom_api_key)
-            
-            system_prompt = f"""Sen uzman bir Kıdemli Yazılım Mimarı ve Siber Güvenlik Baş Denetçisisin.
+    except Exception as vec_err:
+        print(f"[AI Service] ℹ️ PgVector / Vektör arama atlandı ({vec_err}). Doğrudan kod bağlamı kullanılıyor.")
+        context = document_text[:5000]
+
+    if not context:
+        context = document_text[:5000]
+
+    try:
+        # Dinamik Çoklu Model Yükleyici (Llama 3 / Qwen 2.5 / Gemini / Groq / GPT-4o / Claude)
+        llm, model_display_name = get_llm_instance(model_name, custom_api_key)
+        
+        system_prompt = f"""Sen uzman bir Kıdemli Yazılım Mimarı ve Siber Güvenlik Baş Denetçisisin.
 Şu anda bir {detected_language} kaynak kod dosyasını inceliyorsun.
 
 GÖREVİN: Verilen {detected_language} kod bağlamını derinlemesine analiz edip koddaki güvenlik açıklarını, riskleri ve yapılması gereken düzeltmeleri açıklayıcı bir denetim raporu halinde sunmaktır.
@@ -342,40 +349,40 @@ KESİN KURALLAR:
 
 Doğrudan Türkçe teknik rapora odaklan."""
 
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f"İncelenecek {detected_language} Dosyası ({file_name}):\n```\n{context}\n```\n\nÖNEMLİ TALİMAT: Kod bloğu yazmadan, bu {detected_language} kodundaki tüm açıkları ve yapılması gereken adımları KESİNLİKLE VE TAMAMEN TÜRKÇE olarak yukarıdaki şablonda açıkla.")
-            ]
-            
-            print(f"[AI Service] {detected_language} dosyası için {model_display_name} ile kodsuz, açıklayıcı ve %100 Türkçe analiz yapılıyor...")
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"İncelenecek {detected_language} Dosyası ({file_name}):\n```\n{context}\n```\n\nÖNEMLİ TALİMAT: Kod bloğu yazmadan, bu {detected_language} kodundaki tüm açıkları ve yapılması gereken adımları KESİNLİKLE VE TAMAMEN TÜRKÇE olarak yukarıdaki şablonda açıkla.")
+        ]
+        
+        print(f"[AI Service] {detected_language} dosyası için {model_display_name} ile kodsuz, açıklayıcı ve %100 Türkçe analiz yapılıyor...")
 
-            response = llm.invoke(messages)
-            raw_content = response.content
-            if isinstance(raw_content, list):
-                text_parts = []
-                for part in raw_content:
-                    if isinstance(part, dict) and "text" in part:
-                        text_parts.append(part["text"])
-                    elif isinstance(part, str):
-                        text_parts.append(part)
-                raw_content = "\n".join(text_parts) if text_parts else str(raw_content)
-            elif not isinstance(raw_content, str):
-                raw_content = str(raw_content)
+        response = llm.invoke(messages)
+        raw_content = response.content
+        if isinstance(raw_content, list):
+            text_parts = []
+            for part in raw_content:
+                if isinstance(part, dict) and "text" in part:
+                    text_parts.append(part["text"])
+                elif isinstance(part, str):
+                    text_parts.append(part)
+            raw_content = "\n".join(text_parts) if text_parts else str(raw_content)
+        elif not isinstance(raw_content, str):
+            raw_content = str(raw_content)
 
-            print(f"\nAI Cevabı ({model_display_name}):\n{raw_content}")
+        print(f"\nAI Cevabı ({model_display_name}):\n{raw_content}")
 
-            # Dinamik Zafiyet Düzeyi Tespiti
-            detected_severity = extract_severity(raw_content)
-            print(f"[AI Service] 🎯 Tespit Edilen Zafiyet Düzeyi: {detected_severity} (Model: {model_display_name})")
-            
-            # Analiz Bitti -> Sonucu Kafka'ya Geri Gönder
-            result_event = AnalysisCompletedEvent(
-                FileId=file_id, 
-                Severity=detected_severity, 
-                AiSuggestion=raw_content,
-                ModelUsed=model_display_name
-            )
-            send_analysis_result(result_event)
+        # Dinamik Zafiyet Düzeyi Tespiti
+        detected_severity = extract_severity(raw_content)
+        print(f"[AI Service] 🎯 Tespit Edilen Zafiyet Düzeyi: {detected_severity} (Model: {model_display_name})")
+        
+        # Analiz Bitti -> Sonucu Kafka'ya Geri Gönder
+        result_event = AnalysisCompletedEvent(
+            FileId=file_id, 
+            Severity=detected_severity, 
+            AiSuggestion=raw_content,
+            ModelUsed=model_display_name
+        )
+        send_analysis_result(result_event)
     except Exception as e:
         err_str = str(e)
         if "not found" in err_str.lower() and "qwen" in err_str.lower():

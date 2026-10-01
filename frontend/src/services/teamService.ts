@@ -42,5 +42,19 @@ export const teamService = {
 
   deleteCompanyWorkspace: async (payload: DeleteCompanyPayload): Promise<ApiResponse<string>> => {
     return await api.post<ApiResponse<string>>("/api/team/delete-company", payload)
+  },
+
+  exportCompanyData: async (): Promise<string> => {
+    return await api.downloadFile(
+      "/api/team/export-data",
+      `codemind-company-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
+    )
+  },
+
+  exportCompanyPdf: async (): Promise<string> => {
+    return await api.downloadFile(
+      "/api/team/export-pdf",
+      `codemind-company-audit-report-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`
+    )
   }
 }

@@ -23,13 +23,17 @@ public class DocumentController : ControllerBase
 
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] string? model = "llama3", [FromForm] string? apiKey = null)
+    public async Task<IActionResult> UploadFile([FromForm] UploadDocumentRequest request)
     {
         if (User.IsInRole("Auditor"))
         {
             return StatusCode(StatusCodes.Status403Forbidden, 
                 ApiResponse<string>.Fail("Güvenlik Denetçisi (Auditor) rolündeki kullanıcıların kod yükleme ve analiz başlatma yetkisi bulunmamaktadır. Yalnızca raporları inceleyebilirsiniz."));
         }
+
+        var file = request.File;
+        var model = request.Model;
+        var apiKey = request.ApiKey;
 
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<string>.Fail("Dosya seçilmedi veya boş dosya.", "Lütfen geçerli bir dosya seçin."));
@@ -87,4 +91,49 @@ public class DocumentController : ControllerBase
         var response = await _documentService.GetDashboardStatsAsync();
         return Ok(response);
     }
+
+    [HttpGet("{documentId:guid}/export/json")]
+    public async Task<IActionResult> ExportDocumentReportJson(Guid documentId)
+    {
+        var response = await _documentService.ExportDocumentReportJsonAsync(documentId);
+        if (!response.IsSuccess || response.Data == null)
+            return NotFound(response);
+
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        };
+
+        var jsonBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(response.Data, jsonOptions);
+        var cleanFileName = System.IO.Path.GetFileNameWithoutExtension(response.Data.Document.FileName);
+        if (string.IsNullOrWhiteSpace(cleanFileName)) cleanFileName = documentId.ToString();
+        var safeFileName = string.Join("_", cleanFileName.Split(System.IO.Path.GetInvalidFileNameChars()));
+        var downloadName = $"codemind-report-{safeFileName}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
+
+        return File(jsonBytes, "application/json", downloadName);
+    }
+
+    [HttpGet("{documentId:guid}/export/pdf")]
+    public async Task<IActionResult> ExportDocumentReportPdf(Guid documentId, [FromServices] IPdfExportService pdfExportService)
+    {
+        var response = await _documentService.ExportDocumentReportJsonAsync(documentId);
+        if (!response.IsSuccess || response.Data == null)
+            return NotFound(response);
+
+        var pdfBytes = pdfExportService.GenerateDocumentReportPdf(response.Data);
+        var cleanFileName = System.IO.Path.GetFileNameWithoutExtension(response.Data.Document.FileName);
+        if (string.IsNullOrWhiteSpace(cleanFileName)) cleanFileName = documentId.ToString();
+        var safeFileName = string.Join("_", cleanFileName.Split(System.IO.Path.GetInvalidFileNameChars()));
+        var downloadName = $"codemind-report-{safeFileName}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+
+        return File(pdfBytes, "application/pdf", downloadName);
+    }
+}
+
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; } = null!;
+    public string? Model { get; set; } = "llama3";
+    public string? ApiKey { get; set; }
 }

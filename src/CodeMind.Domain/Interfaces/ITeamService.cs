@@ -13,4 +13,5 @@ public interface ITeamService
     Task<ApiResponse<TeamMemberDto>> UpdateMemberRoleAsync(Guid memberId, UpdateTeamMemberRoleRequestDto requestDto);
     Task<ApiResponse<string>> RemoveTeamMemberAsync(Guid memberId);
     Task<ApiResponse<string>> DeleteCompanyWorkspaceAsync(DeleteCompanyRequestDto requestDto);
+    Task<ApiResponse<CompanyExportDto>> ExportCompanyDataAsync();
 }

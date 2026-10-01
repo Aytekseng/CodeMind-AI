@@ -56,10 +56,24 @@ export function DangerZoneCard() {
     }
   }
 
-  const handleExportDataClick = () => {
-    toast.info("Kurumsal veri ve rapor dışa aktarma (ZIP/JSON) özelliği bir sonraki sürümde aktif edilecektir.", {
-      description: "Tüm analiz raporları ve güvenlik bulguları kurumsal arşiv formatında paketlenecektir."
-    })
+  const [isExporting, setIsExporting] = React.useState(false)
+
+  const handleExportDataClick = async () => {
+    if (isExporting) return
+    try {
+      setIsExporting(true)
+      toast.info("Kurumsal denetim raporu hazırlanıyor...", {
+        description: "Tüm projeler, ekip verileri ve zafiyet özetleri PDF formatında derleniyor."
+      })
+      const downloadedFile = await teamService.exportCompanyPdf()
+      toast.success("Kurumsal PDF raporu başarıyla indirildi!", {
+        description: `${downloadedFile} bilgisayarınıza kaydedildi.`
+      })
+    } catch (err: any) {
+      toast.error(err?.message || "PDF raporu oluşturulurken bir hata oluştu.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   return (
@@ -87,28 +101,38 @@ export function DangerZoneCard() {
         </CardHeader>
 
         <CardContent className="pt-4 space-y-4">
-          {/* 1. Verileri Dışa Aktarma (Geçici/Geliştirme Butonu) */}
+          {/* 1. Verileri Dışa Aktarma */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 rounded-xl border border-white/5 bg-[#0a0c14]">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-medium text-white">Tüm Analiz Verilerini & Raporları Dışa Aktar</h4>
-                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-300 bg-amber-500/10">
-                  Yakında
+                <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
+                  PDF Raporu
                 </Badge>
               </div>
               <p className="text-[11px] text-zinc-400 max-w-xl">
-                Şirketinize ait tüm kaynak kod güvenlik analiz raporlarını, bulguları ve zafiyet özetlerini arşivlemek üzere indirin.
+                Şirketinize ait tüm kaynak kod güvenlik analiz raporlarını, bulguları ve zafiyet özetlerini kurumsal PDF formatında indirin.
               </p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              disabled={isExporting}
               onClick={handleExportDataClick}
-              className="border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 text-zinc-300 hover:text-cyan-300 text-xs gap-1.5 shrink-0 cursor-pointer"
+              className="border-cyan-500/30 hover:border-cyan-400 hover:bg-cyan-500/10 text-cyan-300 text-xs gap-1.5 shrink-0 cursor-pointer shadow-[0_0_10px_rgba(6,182,212,0.1)]"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Verileri İndir (.ZIP)</span>
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                  <span>İndiriliyor...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Tüm Verileri İndir (PDF)</span>
+                </>
+              )}
             </Button>
           </div>
 
