@@ -163,7 +163,7 @@ sequenceDiagram
 ### 🔵 Opsiyonel / İleri Düzey Vizyoner Eklentiler
 1. **✅ Çoklu Model Desteği (Multi-LLM Switcher) [TAMAMLANDI]:**
    - Yerel Llama 3'e ek olarak kullanıcının kendi API anahtarıyla (BYOK) GPT-4o veya Claude 3.5 Sonnet seçebilmesi.
-2. **PDF & Markdown Güvenlik Raporu Dışa Aktarma (Export):**
+2. **PDF & Markdown Güvenlik Raporu Dışa Aktarma (Export) [TAMAMLANDI]:**
    - Dashboard'daki analiz raporunun kurumsal formatta PDF olarak indirilmesi.
 3. **GitHub / GitLab Webhook Entegrasyonu:**
    - Pull Request açıldığında otomatik kod denetimi yapıp PR altına yorum olarak rapor bırakma.
