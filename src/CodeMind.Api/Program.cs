@@ -2,8 +2,12 @@ using System.Text;
 using CodeMind.Api.Hubs;
 using CodeMind.Api.Middlewares;
 using CodeMind.Domain.Interfaces;
+using CodeMind.Application.Services;
 using CodeMind.Infrastructure.Data;
-using CodeMind.Infrastructure.Services;
+using CodeMind.Infrastructure.Security;
+using CodeMind.Infrastructure.Storage;
+using CodeMind.Infrastructure.Reporting;
+using CodeMind.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
@@ -48,18 +52,19 @@ try
     // Add services to the container.
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
     builder.Services.AddMemoryCache();
-    builder.Services.AddSingleton<ITempKeyVaultService, TempKeyVaultService>();
+    builder.Services.AddSingleton<ITempKeyVaultService, TempKeyVaultAdapter>();
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
-    builder.Services.AddScoped<IMessageProducer, KafkaProducer>();
-    builder.Services.AddSingleton<IMinIOService, MinIOService>();
+    builder.Services.AddScoped<IMessageProducer, KafkaMessageProducer>();
+    builder.Services.AddSingleton<IMinIOService, MinioStorageAdapter>();
     builder.Services.AddScoped<IDocumentService, DocumentService>();
     builder.Services.AddScoped<ITeamService, TeamService>();
-    builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
+    builder.Services.AddSingleton<IPdfExportService, QuestPdfReportAdapter>();
     builder.Services.AddSignalR();
-    builder.Services.AddSingleton<IMessageConsumer, CodeMind.Infrastructure.Messaging.KafkaConsumer>();
+    builder.Services.AddSingleton<IMessageConsumer, KafkaMessageConsumer>();
     builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();
     builder.Services.Configure<HostOptions>(options =>
     {
@@ -83,7 +88,7 @@ try
     builder.Services.AddControllers();
     builder.Services.AddAutoMapper(cfg => 
     {
-        cfg.AddProfile<CodeMind.Domain.Mappings.MappingProfile>();
+        cfg.AddProfile<CodeMind.Application.Mappings.MappingProfile>();
     });
     builder.Services.AddOpenApi();
     builder.Services.AddSwaggerGen();
@@ -130,17 +135,18 @@ try
     // Global Exception Handler (Tüm beklenmeyen hataları standart ApiResponse ile yakalar)
     app.UseMiddleware<GlobalExceptionMiddleware>();
 
+    // Veritabanı Otomatik Migration ve Demo Seed Verisi (İlk açılışta veya Docker konteynerinde otomatik çalışır)
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        await DbInitializer.InitializeAsync(dbContext, startupLogger);
+    }
+
     // Configure the HTTP request pipeline.
-    if (app.Environment.IsDevelopment())
-    {
-        app.MapOpenApi();
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
-    else
-    {
-        app.UseHttpsRedirection();
-    }
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 
     app.UseAuthentication();
     app.UseAuthorization();

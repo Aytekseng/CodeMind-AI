@@ -1,22 +1,24 @@
 using System;
 using System.Linq;
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Document;
 using CodeMind.Domain.DTOs.Team;
 using CodeMind.Domain.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Infrastructure.Reporting;
 
-public class PdfExportService : IPdfExportService
+public class QuestPdfReportAdapter : IPdfExportService
 {
-    static PdfExportService()
+    static QuestPdfReportAdapter()
     {
         // QuestPDF Açık Kaynak / Topluluk lisansı
         QuestPDF.Settings.License = LicenseType.Community;
         QuestPDF.Settings.UseSystemFonts = true;
         QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
+        // Linux/Docker ortamlarında eksik emoji/glif fontları durumunda 500 hatası atmaması için:
+        QuestPDF.Settings.ThrowOnMissingTextGlyphs = false;
     }
 
     public byte[] GenerateDocumentReportPdf(DocumentExportReportDto report)
@@ -36,7 +38,7 @@ public class PdfExportService : IPdfExportService
                     {
                         row.RelativeItem().Column(col =>
                         {
-                            col.Item().Text("🛡️ CodeMind-AI Security Platform")
+                            col.Item().Text("CodeMind-AI Security Platform")
                                 .FontSize(16).Bold().FontColor(Colors.Cyan.Darken2);
                             col.Item().Text("Otomatik Kaynak Kod Güvenlik Denetim Raporu")
                                 .FontSize(11).Medium().FontColor(Colors.Grey.Darken2);
@@ -97,7 +99,7 @@ public class PdfExportService : IPdfExportService
                     });
 
                     // 2. Yapay Zeka Güvenlik Bulguları
-                    column.Item().Text("1. 🛡️ Yapay Zeka Güvenlik Bulguları ve Çözüm Eylem Planı")
+                    column.Item().Text("1. Yapay Zeka Güvenlik Bulguları ve Çözüm Eylem Planı")
                         .Bold().FontSize(12).FontColor(Colors.Blue.Darken3);
 
                     column.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Background(Colors.White).Padding(12).Column(c =>
@@ -112,7 +114,7 @@ public class PdfExportService : IPdfExportService
                     // 3. Kaynak Kod
                     if (!string.IsNullOrWhiteSpace(report.Document.OriginalCode))
                     {
-                        column.Item().Text("2. 📄 Analiz Edilen Kaynak Kod")
+                        column.Item().Text("2. Analiz Edilen Kaynak Kod")
                             .Bold().FontSize(12).FontColor(Colors.Blue.Darken3);
 
                         column.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Background(Colors.Grey.Lighten5).Padding(10).Column(c =>
@@ -161,7 +163,7 @@ public class PdfExportService : IPdfExportService
                 {
                     row.RelativeItem().Column(col =>
                     {
-                        col.Item().Text("🏢 CodeMind-AI Kurumsal Güvenlik Denetim Özeti")
+                        col.Item().Text("CodeMind-AI Kurumsal Güvenlik Denetim Özeti")
                             .FontSize(16).Bold().FontColor(Colors.Cyan.Darken2);
                         col.Item().Text($"Şirket / Çalışma Alanı: {companyData.Company.Name}")
                             .FontSize(11).Medium().FontColor(Colors.Grey.Darken2);
@@ -181,7 +183,7 @@ public class PdfExportService : IPdfExportService
                     column.Spacing(14);
 
                     // 1. İstatistik Özet Kartları
-                    column.Item().Text("📊 Genel Güvenlik ve Analiz İstatistikleri")
+                    column.Item().Text("Genel Güvenlik ve Analiz İstatistikleri")
                         .Bold().FontSize(12).FontColor(Colors.Blue.Darken3);
 
                     column.Item().Row(row =>
@@ -220,7 +222,7 @@ public class PdfExportService : IPdfExportService
                     });
 
                     // 2. Kayıtlı Takım Üyeleri
-                    column.Item().Text($"👥 Kayıtlı Ekip Üyeleri ({companyData.Users.Count})")
+                    column.Item().Text($"Kayıtlı Ekip Üyeleri ({companyData.Users.Count})")
                         .Bold().FontSize(12).FontColor(Colors.Blue.Darken3);
 
                     column.Item().Table(table =>
@@ -248,7 +250,7 @@ public class PdfExportService : IPdfExportService
                     });
 
                     // 3. Projeler ve Taranan Dosyalar Tablosu
-                    column.Item().Text($"📁 Projeler ve Taranan Dosyalar ({companyData.Statistics.TotalDocuments} Dosya)")
+                    column.Item().Text($"Projeler ve Taranan Dosyalar ({companyData.Statistics.TotalDocuments} Dosya)")
                         .Bold().FontSize(12).FontColor(Colors.Blue.Darken3);
 
                     if (companyData.Projects.Any())

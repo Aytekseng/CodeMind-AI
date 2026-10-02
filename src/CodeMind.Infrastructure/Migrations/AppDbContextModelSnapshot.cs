@@ -66,6 +66,9 @@ namespace CodeMind.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Model")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 

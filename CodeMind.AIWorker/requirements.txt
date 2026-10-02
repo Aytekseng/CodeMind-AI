@@ -13,3 +13,4 @@ psycopg[binary,pool]
 pydantic
 pydantic-settings
 python-dotenv
+boto3

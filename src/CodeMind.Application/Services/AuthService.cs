@@ -1,28 +1,28 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using CodeMind.Domain.DTOs;
+using System.Threading.Tasks;
+using AutoMapper;
+using CodeMind.Domain.DTOs.Common;
 using CodeMind.Domain.DTOs.Auth.Requests;
 using CodeMind.Domain.DTOs.Auth.Responses;
-using CodeMind.Domain.Entities;
 using CodeMind.Domain.Interfaces;
-using CodeMind.Infrastructure.Data;
+using CodeMind.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
-using AutoMapper;
-
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Application.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly AppDbContext _context;
+    private readonly IAppDbContext _context;
     private readonly IConfiguration _config;
     private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUserService;
 
-    public AuthService(AppDbContext context, IConfiguration config, IMapper mapper, ICurrentUserService currentUserService)
+    public AuthService(IAppDbContext context, IConfiguration config, IMapper mapper, ICurrentUserService currentUserService)
     {
         _context = context;
         _config = config;
@@ -269,4 +269,3 @@ public class AuthService : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-

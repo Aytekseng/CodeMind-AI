@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     INTERNAL_API_URL: str = "http://localhost:5083"
 
+    # MinIO Depolama Ayarları
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ACCESS_KEY: str = "admin"
+    MINIO_SECRET_KEY: str = "adminpassword"
+    MINIO_BUCKET_NAME: str = "codemind-uploads"
+
     class Config:
         env_file = "../../.env"  # Points to the root .env file
         extra = "ignore" # .env içindeki diğer değerleri yok say

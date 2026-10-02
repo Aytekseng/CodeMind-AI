@@ -6,14 +6,14 @@ using Microsoft.Extensions.Configuration;
 using Minio;
 using Minio.DataModel.Args;
 
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Infrastructure.Storage;
 
-public class MinIOService : IMinIOService
+public class MinioStorageAdapter : IMinIOService
 {
     private readonly IMinioClient _minioClient;
     private readonly string _bucketName = string.Empty;
 
-    public MinIOService(IConfiguration config)
+    public MinioStorageAdapter(IConfiguration config)
     {
         var settings = config.GetSection("MinIOSettings");
         _bucketName = settings["BucketName"] ?? "codemind-uploads";

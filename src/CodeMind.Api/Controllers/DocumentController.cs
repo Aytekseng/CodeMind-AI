@@ -3,8 +3,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using CodeMind.Domain.DTOs.Common;
+using CodeMind.Domain.DTOs.Dashboard;
+using CodeMind.Domain.DTOs.Document;
 using CodeMind.Domain.Interfaces;
-using CodeMind.Domain.DTOs;
 
 namespace CodeMind.Api.Controllers;
 
@@ -128,6 +130,16 @@ public class DocumentController : ControllerBase
         var downloadName = $"codemind-report-{safeFileName}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
 
         return File(pdfBytes, "application/pdf", downloadName);
+    }
+
+    [HttpPost("{documentId:guid}/cancel")]
+    public async Task<IActionResult> CancelAnalysis(Guid documentId)
+    {
+        var response = await _documentService.CancelDocumentAnalysisAsync(documentId);
+        if (!response.IsSuccess)
+            return BadRequest(response);
+
+        return Ok(response);
     }
 }
 

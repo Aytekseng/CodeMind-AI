@@ -1,4 +1,4 @@
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Document;
 using CodeMind.Domain.DTOs.Team;
 
 namespace CodeMind.Domain.Interfaces;

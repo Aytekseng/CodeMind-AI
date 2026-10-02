@@ -1,2 +1,6 @@
 <Solution>
+  <Project Path="CodeMind.Domain/CodeMind.Domain.csproj" />
+  <Project Path="CodeMind.Application/CodeMind.Application.csproj" />
+  <Project Path="CodeMind.Infrastructure/CodeMind.Infrastructure.csproj" />
+  <Project Path="CodeMind.Api/CodeMind.Api.csproj" />
 </Solution>

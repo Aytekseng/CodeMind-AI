@@ -2,75 +2,83 @@ services:
   postgres:
     image: ankane/pgvector:latest
     container_name: codemind-postgres
-    env_file: .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-codemind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codemindpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-codemind_db}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - codemind-network
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: codemind-pgadmin
-    env_file: .env
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@codemind.ai}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-adminpassword}
     ports:
       - "5050:80"
     depends_on:
       - postgres
     restart: unless-stopped
+    networks:
+      - codemind-network
 
   kafka:
     image: bitnamilegacy/kafka:3.7.0
     container_name: codemind-kafka
-    env_file: .env
     ports:
       - "9092:9092"
+      - "9094:9094"
     environment:
-      KAFKA_ENABLE_KRAFT: ${KAFKA_ENABLE_KRAFT}
-      KAFKA_CFG_PROCESS_ROLES: ${KAFKA_CFG_PROCESS_ROLES}
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: ${KAFKA_CFG_CONTROLLER_LISTENER_NAMES}
-      KAFKA_CFG_LISTENERS: ${KAFKA_CFG_LISTENERS}
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP}
-      KAFKA_CFG_ADVERTISED_LISTENERS: ${KAFKA_CFG_ADVERTISED_LISTENERS}
-      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: ${KAFKA_CFG_INTER_BROKER_LISTENER_NAME}
-      KAFKA_CFG_NODE_ID: ${KAFKA_CFG_NODE_ID}
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: ${KAFKA_CFG_CONTROLLER_QUORUM_VOTERS}
-      ALLOW_PLAINTEXT_LISTENER: ${ALLOW_PLAINTEXT_LISTENER}
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
     volumes:
       - kafka_data:/bitnami/kafka
+    networks:
+      - codemind-network
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
     container_name: codemind-kafka-ui
-    env_file: .env
     ports:
       - "8081:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: ${KAFKA_CLUSTERS_0_NAME}
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS}
+      KAFKA_CLUSTERS_0_NAME: "CodeMind-Cluster"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
     depends_on:
       - kafka
+    networks:
+      - codemind-network
 
   minio:
-    image: minio/minio:latest
+    image: bitnamilegacy/minio:latest
     container_name: codemind-minio
+    user: root
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":9001"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-adminpassword}
+      MINIO_DEFAULT_BUCKETS: "codemind-storage,codemind-uploads"
     volumes:
-      - minio_data:/data
+      - minio_data:/bitnami/minio/data
     restart: unless-stopped
+    networks:
+      - codemind-network
 
   seq:
     image: datalust/seq:latest
@@ -83,9 +91,93 @@ services:
     volumes:
       - seq_data:/data
     restart: unless-stopped
+    networks:
+      - codemind-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: src/CodeMind.Api/Dockerfile
+    container_name: codemind-backend
+    ports:
+      - "5083:5083"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5083
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=codemind_db;Username=codemind;Password=codemindpassword
+      - MinIOSettings__Endpoint=minio:9000
+      - MinIOSettings__AccessKey=${MINIO_ROOT_USER:-admin}
+      - MinIOSettings__SecretKey=${MINIO_ROOT_PASSWORD:-adminpassword}
+      - MinIOSettings__BucketName=codemind-uploads
+      - KafkaSettings__BootstrapServers=kafka:9092
+      - SeqSettings__ServerUrl=http://seq:80
+      - JwtSettings__Secret=${JWT_SECRET:-CodeMind_Super_Secret_Key_For_JWT_Auth_2026!+}
+      - JwtSettings__Issuer=CodeMindApi
+      - JwtSettings__Audience=CodeMindClients
+    depends_on:
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - codemind-network
+
+  ai-worker:
+    build:
+      context: ./CodeMind.AIWorker
+      dockerfile: Dockerfile
+    container_name: codemind-ai-worker
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_TOPIC=file-uploads
+      - KAFKA_GROUP_ID=ai-worker-group
+      - DATABASE_URL=postgresql+psycopg://codemind:codemindpassword@postgres:5432/codemind_db
+      - INTERNAL_API_URL=http://backend:5083
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-adminpassword}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-llama3}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - kafka
+      - postgres
+      - minio
+      - backend
+    restart: unless-stopped
+    networks:
+      - codemind-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5083
+    container_name: codemind-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - codemind-network
 
 volumes:
   pgdata:
   kafka_data:
   minio_data:
   seq_data:
+
+networks:
+  codemind-network:
+    driver: bridge

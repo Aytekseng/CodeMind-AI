@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
 import * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
+import { cancelDocumentAnalysisAsync } from "@/services/documentService"
 
 export interface AnalysisResultEvent {
   fileId: string
@@ -429,11 +430,16 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const resetAnalysis = useCallback(() => {
+    if (session.documentId && session.isAnalyzing && !session.isCompleted) {
+      cancelDocumentAnalysisAsync(session.documentId).catch((err) => {
+        console.warn("[AnalysisContext] Analiz iptal isteği gönderilemedi:", err)
+      })
+    }
     setSession(INITIAL_STATE)
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(STORAGE_KEY)
     }
-  }, [])
+  }, [session.documentId, session.isAnalyzing, session.isCompleted])
 
   return (
     <AnalysisContext.Provider

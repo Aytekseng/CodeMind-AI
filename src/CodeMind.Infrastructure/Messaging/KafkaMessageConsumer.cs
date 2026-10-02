@@ -1,4 +1,7 @@
+using System;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Confluent.Kafka;
 using CodeMind.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -6,12 +9,12 @@ using Microsoft.Extensions.Logging;
 
 namespace CodeMind.Infrastructure.Messaging;
 
-public class KafkaConsumer : IMessageConsumer
+public class KafkaMessageConsumer : IMessageConsumer
 {
     private readonly IConfiguration _config;
-    private readonly ILogger<KafkaConsumer> _logger;
+    private readonly ILogger<KafkaMessageConsumer> _logger;
 
-    public KafkaConsumer(IConfiguration config, ILogger<KafkaConsumer> logger)
+    public KafkaMessageConsumer(IConfiguration config, ILogger<KafkaMessageConsumer> logger)
     {
         _config = config;
         _logger = logger;
@@ -19,7 +22,7 @@ public class KafkaConsumer : IMessageConsumer
 
     public async Task StartConsumingAsync<T>(string topic, Func<T, Task> onMessageReceived, CancellationToken cancellationToken)
     {
-        var bootstrapServers = "localhost:9092";
+        var bootstrapServers = _config["KafkaSettings:BootstrapServers"] ?? "localhost:9092";
         var config = new ConsumerConfig
         {
             BootstrapServers = bootstrapServers, 

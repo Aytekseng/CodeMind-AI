@@ -12,11 +12,17 @@ from kafka_utils.producer import send_analysis_result, send_analysis_failure
 
 def get_file_from_minio(object_key: str) -> str:
     """MinIO'dan dosyayı indirip içeriğini string olarak döndürür."""
-    s3_client = boto3.client('s3',
-                             endpoint_url = 'http://localhost:9000',
-                             aws_access_key_id = 'admin',
-                             aws_secret_access_key = 'adminpassword')
-    response = s3_client.get_object(Bucket = 'codemind-uploads', Key = object_key)
+    endpoint = settings.MINIO_ENDPOINT
+    if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
+        endpoint = f"http://{endpoint}"
+
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=endpoint,
+        aws_access_key_id=settings.MINIO_ACCESS_KEY,
+        aws_secret_access_key=settings.MINIO_SECRET_KEY
+    )
+    response = s3_client.get_object(Bucket=settings.MINIO_BUCKET_NAME, Key=object_key)
     return response['Body'].read().decode('utf-8')
 
 def get_vector_store():

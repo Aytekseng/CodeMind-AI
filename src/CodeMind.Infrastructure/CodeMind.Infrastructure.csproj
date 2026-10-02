@@ -1,28 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CodeMind.Domain\CodeMind.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="16.2.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Confluent.Kafka" Version="2.15.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
     <PackageReference Include="Minio" Version="7.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
   </ItemGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
 
 </Project>

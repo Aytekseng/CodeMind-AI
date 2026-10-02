@@ -1,4 +1,6 @@
-namespace CodeMind.Domain.DTOs;
+using System.Collections.Generic;
+
+namespace CodeMind.Domain.DTOs.Common;
 
 public class ApiResponse<T>
 {
@@ -7,7 +9,6 @@ public class ApiResponse<T>
     public string? Message { get; set; }
     public List<string>? Errors { get; set; }
 
-    // Başarılı durumlar için yardımcı (Factory) metot
     public static ApiResponse<T> Success(T data, string message = "İşlem başarılı.")
     {
         return new ApiResponse<T> 
@@ -18,7 +19,6 @@ public class ApiResponse<T>
         };
     }
 
-    // Başarısız durumlar (Tek hata) için yardımcı metot
     public static ApiResponse<T> Fail(string error, string message = "İşlem başarısız.")
     {
         return new ApiResponse<T> 
@@ -29,7 +29,6 @@ public class ApiResponse<T>
         };
     }
     
-    // Başarısız durumlar (Birden çok hata) için yardımcı metot
     public static ApiResponse<T> Fail(List<string> errors, string message = "İşlem başarısız.")
     {
         return new ApiResponse<T> 

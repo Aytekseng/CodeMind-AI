@@ -1,0 +1,15 @@
+.git
+.github
+.vs
+.vscode
+.idea
+**/bin
+**/obj
+**/node_modules
+**/.next
+**/.venv
+**/venv
+**/__pycache__
+*.log
+*.tmp
+docker-compose.override.yml

@@ -1,14 +1,15 @@
+using CodeMind.Domain.Interfaces;
 using CodeMind.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeMind.Infrastructure.Data;
 
 // Entity Framework Core'un veritabanı ile uygulamamız arasındaki bağlantıyı sağlayan ana bağlam (Context) sınıfı
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IAppDbContext
 {
-    private readonly CodeMind.Domain.Interfaces.ICurrentUserService _currentUserService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, CodeMind.Domain.Interfaces.ICurrentUserService currentUserService) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUserService currentUserService) : base(options)
     {
         _currentUserService = currentUserService;
     }

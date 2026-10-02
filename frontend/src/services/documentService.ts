@@ -154,6 +154,13 @@ export async function exportDocumentReportPdfAsync(
 }
 
 /**
+ * İşlemde olan bir doküman analizini kullanıcı isteğiyle iptal eder
+ */
+export async function cancelDocumentAnalysisAsync(documentId: string): Promise<ApiResponse<boolean>> {
+  return await api.post<ApiResponse<boolean>>(`/api/Document/${documentId}/cancel`)
+}
+
+/**
  * Belirli bir dokümanın analiz raporunu kurumsal formatta yazdırır veya PDF olarak dışa aktarır
  */
 export function printDocumentReport(report: DocumentReportDetail, companyName?: string): void {

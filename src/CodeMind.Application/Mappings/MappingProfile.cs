@@ -2,7 +2,7 @@ using AutoMapper;
 using CodeMind.Domain.DTOs.Auth.Requests;
 using CodeMind.Domain.Entities;
 
-namespace CodeMind.Domain.Mappings;
+namespace CodeMind.Application.Mappings;
 
 public class MappingProfile : Profile
 {

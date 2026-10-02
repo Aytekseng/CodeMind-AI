@@ -3,15 +3,15 @@ using CodeMind.Domain.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Infrastructure.Security;
 
-public class TempKeyVaultService : ITempKeyVaultService
+public class TempKeyVaultAdapter : ITempKeyVaultService
 {
     private readonly IMemoryCache _cache;
-    private readonly ILogger<TempKeyVaultService> _logger;
+    private readonly ILogger<TempKeyVaultAdapter> _logger;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromSeconds(90);
 
-    public TempKeyVaultService(IMemoryCache cache, ILogger<TempKeyVaultService> logger)
+    public TempKeyVaultAdapter(IMemoryCache cache, ILogger<TempKeyVaultAdapter> logger)
     {
         _cache = cache;
         _logger = logger;

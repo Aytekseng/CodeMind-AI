@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Common;
 using CodeMind.Domain.DTOs.Team;
 
 namespace CodeMind.Domain.Interfaces;

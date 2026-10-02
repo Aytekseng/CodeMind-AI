@@ -98,6 +98,30 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
 
   const getSeverityBadge = (severity: string) => {
     const s = severity?.toLowerCase() || ""
+    if (s.includes("başarısız") || s.includes("hata") || s.includes("failed")) {
+      return (
+        <Badge variant="destructive" className="gap-1 text-[11px] bg-rose-500/10 text-rose-400 border-rose-500/30">
+          <AlertTriangle className="h-3 w-3" />
+          {severity || "Başarısız"}
+        </Badge>
+      )
+    }
+    if (s.includes("iptal") || s.includes("cancel")) {
+      return (
+        <Badge variant="outline" className="gap-1 text-[11px] text-zinc-400 border-zinc-700 bg-zinc-800/40">
+          <X className="h-3 w-3" />
+          {severity || "İptal Edildi"}
+        </Badge>
+      )
+    }
+    if (s.includes("inceleniyor") || s.includes("pending") || s.includes("processing")) {
+      return (
+        <Badge variant="outline" className="gap-1 text-[11px] text-cyan-400 border-cyan-500/30 bg-cyan-950/40">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {severity || "İnceleniyor..."}
+        </Badge>
+      )
+    }
     if (s.includes("kritik") || s.includes("critical")) {
       return (
         <Badge variant="destructive" className="gap-1 text-[11px]">

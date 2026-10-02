@@ -4,15 +4,16 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Common;
+using CodeMind.Domain.DTOs.Dashboard;
+using CodeMind.Domain.DTOs.Document;
+using CodeMind.Domain.Interfaces;
 using CodeMind.Domain.Entities;
 using CodeMind.Domain.Enums;
-using CodeMind.Domain.Interfaces;
-using CodeMind.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Application.Services;
 
 public class DocumentService : IDocumentService
 {
@@ -31,7 +32,7 @@ public class DocumentService : IDocumentService
     };
     private readonly IMinIOService _minIOService;
     private readonly IMessageProducer _kafkaProducer;
-    private readonly AppDbContext _dbContext;
+    private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly ITempKeyVaultService _tempKeyVaultService;
     private readonly ILogger<DocumentService> _logger;
@@ -39,7 +40,7 @@ public class DocumentService : IDocumentService
     public DocumentService(
         IMinIOService minIOService,
         IMessageProducer kafkaProducer,
-        AppDbContext dbContext,
+        IAppDbContext dbContext,
         ICurrentUserService currentUserService,
         ITempKeyVaultService tempKeyVaultService,
         ILogger<DocumentService> logger)
@@ -101,7 +102,8 @@ public class DocumentService : IDocumentService
                 Id = Guid.NewGuid(), 
                 ProjectId = project.Id, 
                 FileName = fileName, 
-                StorageUrl = savedObjectName
+                StorageUrl = savedObjectName,
+                Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model
             };
             
             _dbContext.Documents.Add(document);
@@ -256,7 +258,8 @@ public class DocumentService : IDocumentService
                     ProjectId = project.Id,
                     FileName = normalizedPath,
                     StorageUrl = savedObjectName,
-                    Status = DocumentStatus.Pending
+                    Status = DocumentStatus.Pending,
+                    Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model
                 };
 
                 _dbContext.Documents.Add(document);
@@ -331,7 +334,26 @@ public class DocumentService : IDocumentService
             var historyList = documents.Select(d =>
             {
                 var latestReport = d.AnalysisReports.FirstOrDefault();
-                string severity = latestReport?.Severity ?? "İnceleniyor";
+                string severity;
+                if (d.Status == DocumentStatus.Failed)
+                {
+                    severity = "Başarısız";
+                }
+                else if (d.Status == DocumentStatus.Cancelled)
+                {
+                    severity = "İptal Edildi";
+                }
+                else if (latestReport != null)
+                {
+                    severity = latestReport.Severity;
+                }
+                else
+                {
+                    severity = d.Status == DocumentStatus.Pending || d.Status == DocumentStatus.Processing 
+                        ? "İnceleniyor" 
+                        : d.Status.ToString();
+                }
+
                 int score = CalculateScoreFromSeverity(severity);
 
                 return new DocumentHistoryDto
@@ -344,10 +366,10 @@ public class DocumentService : IDocumentService
                     Severity = severity,
                     Score = score,
                     FindingsCount = d.AnalysisReports.Count,
-                    LatestAiSuggestion = latestReport?.AiSuggestion,
+                    LatestAiSuggestion = latestReport?.AiSuggestion ?? (d.Status == DocumentStatus.Failed ? "Analiz sırasında hata meydana geldi." : (d.Status == DocumentStatus.Cancelled ? "Analiz kullanıcı tarafından iptal edildi." : null)),
                     ProjectId = d.ProjectId,
                     ProjectName = d.Project?.Name,
-                    ModelUsed = latestReport?.ModelUsed ?? "Llama 3"
+                    ModelUsed = latestReport?.ModelUsed ?? FormatModelDisplayName(d.Model)
                 };
             }).ToList();
 
@@ -382,6 +404,26 @@ public class DocumentService : IDocumentService
             var files = documents.Select(d =>
             {
                 var report = d.AnalysisReports.FirstOrDefault();
+                string severity;
+                if (d.Status == DocumentStatus.Failed)
+                {
+                    severity = "Başarısız";
+                }
+                else if (d.Status == DocumentStatus.Cancelled)
+                {
+                    severity = "İptal Edildi";
+                }
+                else if (report != null)
+                {
+                    severity = report.Severity;
+                }
+                else
+                {
+                    severity = d.Status == DocumentStatus.Pending || d.Status == DocumentStatus.Processing 
+                        ? "İnceleniyor" 
+                        : d.Status.ToString();
+                }
+
                 return new ProjectFileDto
                 {
                     DocumentId = d.Id,
@@ -389,9 +431,9 @@ public class DocumentService : IDocumentService
                     RelativePath = d.FileName,
                     Language = GetLanguageFromFileName(d.FileName),
                     Status = d.Status.ToString(),
-                    Severity = report?.Severity ?? "İnceleniyor",
-                    Score = CalculateScoreFromSeverity(report?.Severity),
-                    ModelUsed = report?.ModelUsed ?? "Llama 3"
+                    Severity = severity,
+                    Score = CalculateScoreFromSeverity(severity),
+                    ModelUsed = report?.ModelUsed ?? FormatModelDisplayName(d.Model)
                 };
             }).ToList();
 
@@ -447,7 +489,7 @@ public class DocumentService : IDocumentService
                 OriginalCode = originalFileContent,
                 ProjectId = document.ProjectId,
                 ProjectName = document.Project?.Name,
-                ModelUsed = latestReport?.ModelUsed ?? "Llama 3",
+                ModelUsed = latestReport?.ModelUsed ?? FormatModelDisplayName(document.Model),
                 VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
                     ? new List<int> { latestReport.LineNumber } 
                     : new List<int>()
@@ -579,7 +621,7 @@ public class DocumentService : IDocumentService
                 {
                     Severity = latestReport?.Severity ?? "İnceleniyor",
                     Score = CalculateScoreFromSeverity(latestReport?.Severity),
-                    ModelUsed = latestReport?.ModelUsed ?? "Llama 3",
+                    ModelUsed = latestReport?.ModelUsed ?? FormatModelDisplayName(document.Model),
                     LineNumber = latestReport?.LineNumber ?? 0,
                     VulnerableLines = latestReport != null && latestReport.LineNumber > 0
                         ? new List<int> { latestReport.LineNumber }
@@ -614,13 +656,67 @@ public class DocumentService : IDocumentService
         };
     }
 
+    public async Task<ApiResponse<bool>> CancelDocumentAnalysisAsync(Guid documentId)
+    {
+        try
+        {
+            var query = _dbContext.Documents.AsQueryable();
+            if (_currentUserService.TenantId != Guid.Empty)
+            {
+                query = query.Where(d => d.Project.TenantId == _currentUserService.TenantId);
+            }
+            else
+            {
+                query = query.IgnoreQueryFilters();
+            }
+
+            var doc = await query.FirstOrDefaultAsync(d => d.Id == documentId);
+            if (doc == null)
+            {
+                return ApiResponse<bool>.Fail("Doküman bulunamadı.", "Geçersiz doküman ID'si.");
+            }
+
+            if (doc.Status == DocumentStatus.Pending || doc.Status == DocumentStatus.Processing)
+            {
+                doc.Status = DocumentStatus.Cancelled;
+                await _dbContext.SaveChangesAsync();
+                _logger.LogInformation("Doküman analizi iptal edildi. DocumentId: {DocumentId}", documentId);
+                return ApiResponse<bool>.Success(true, "Doküman analizi başarıyla iptal edildi.");
+            }
+
+            return ApiResponse<bool>.Success(false, "Doküman zaten tamamlanmış veya daha önce sonlandırılmış.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Doküman iptal edilirken hata oluştu. DocumentId: {DocumentId}", documentId);
+            return ApiResponse<bool>.Fail(ex.Message, "İptal işlemi sırasında hata meydana geldi.");
+        }
+    }
+
     private static int CalculateScoreFromSeverity(string? severity)
     {
         if (string.IsNullOrEmpty(severity)) return 85;
+        if (severity.Contains("Başarısız", StringComparison.OrdinalIgnoreCase) || 
+            severity.Contains("Failed", StringComparison.OrdinalIgnoreCase) ||
+            severity.Contains("İptal", StringComparison.OrdinalIgnoreCase) ||
+            severity.Contains("Cancel", StringComparison.OrdinalIgnoreCase)) return 0;
         if (severity.Contains("Kritik", StringComparison.OrdinalIgnoreCase) || severity.Contains("Critical", StringComparison.OrdinalIgnoreCase)) return 45;
         if (severity.Contains("Yüksek", StringComparison.OrdinalIgnoreCase) || severity.Contains("High", StringComparison.OrdinalIgnoreCase)) return 65;
         if (severity.Contains("Orta", StringComparison.OrdinalIgnoreCase) || severity.Contains("Medium", StringComparison.OrdinalIgnoreCase)) return 80;
         if (severity.Contains("Düşük", StringComparison.OrdinalIgnoreCase) || severity.Contains("Low", StringComparison.OrdinalIgnoreCase)) return 92;
         return 96;
+    }
+
+    private static string FormatModelDisplayName(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return "Llama 3 (Yerel)";
+        var m = model.Trim().ToLowerInvariant();
+        if (m.Contains("llama") && m.Contains("groq")) return "Groq Llama 3.3 70B";
+        if (m.Contains("llama")) return "Llama 3 (Yerel)";
+        if (m.Contains("qwen")) return "Qwen 2.5 Coder 7B (Yerel)";
+        if (m.Contains("gemini")) return "Google Gemini";
+        if (m.Contains("gpt") || m.Contains("openai")) return "OpenAI GPT-4o";
+        if (m.Contains("claude") || m.Contains("anthropic")) return "Claude 3.5 Sonnet";
+        return model;
     }
 }

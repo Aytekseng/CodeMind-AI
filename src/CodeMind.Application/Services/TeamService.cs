@@ -3,23 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CodeMind.Domain.Constants;
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Common;
 using CodeMind.Domain.DTOs.Team;
-using CodeMind.Domain.Entities;
 using CodeMind.Domain.Interfaces;
-using CodeMind.Infrastructure.Data;
+using CodeMind.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace CodeMind.Infrastructure.Services;
+namespace CodeMind.Application.Services;
 
 public class TeamService : ITeamService
 {
-    private readonly AppDbContext _context;
+    private readonly IAppDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<TeamService> _logger;
 
-    public TeamService(AppDbContext context, ICurrentUserService currentUserService, ILogger<TeamService> logger)
+    public TeamService(IAppDbContext context, ICurrentUserService currentUserService, ILogger<TeamService> logger)
     {
         _context = context;
         _currentUserService = currentUserService;

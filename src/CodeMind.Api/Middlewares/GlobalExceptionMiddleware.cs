@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using CodeMind.Domain.DTOs;
+using CodeMind.Domain.DTOs.Common;
 
 namespace CodeMind.Api.Middlewares;
 

@@ -1,3 +1,5 @@
+using System;
+
 namespace CodeMind.Domain.DTOs.Auth.Responses;
 
 public record AuthResponseDto
@@ -12,4 +14,3 @@ public record AuthResponseDto
     public Guid TenantId { get; set; }
     public bool MustChangePassword { get; set; } = false;
 }
-

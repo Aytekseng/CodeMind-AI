@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.2.0" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CodeMind.Domain\CodeMind.Domain.csproj" />
+    <ProjectReference Include="..\CodeMind.Application\CodeMind.Application.csproj" />
     <ProjectReference Include="..\CodeMind.Infrastructure\CodeMind.Infrastructure.csproj" />
   </ItemGroup>
 

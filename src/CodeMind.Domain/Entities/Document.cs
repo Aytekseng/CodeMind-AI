@@ -17,6 +17,9 @@ public class Document : BaseEntity
     // Dosyanın mevcut analiz durumu (Bekliyor, İşleniyor, Tamamlandı)
     public DocumentStatus Status { get; set; } = DocumentStatus.Pending;
 
+    // Analiz için seçilen yapay zeka modeli (örn: llama3, qwen2.5-coder, gemini-3.8-flash)
+    public string? Model { get; set; } = "llama3";
+
     // Dokümanın ait olduğu Proje varlığı (N-1)
     public Project Project { get; set; } = null!;
 

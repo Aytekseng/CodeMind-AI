@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace CodeMind.Domain.DTOs;
+namespace CodeMind.Domain.DTOs.Document;
 
 public class DocumentExportReportDto
 {

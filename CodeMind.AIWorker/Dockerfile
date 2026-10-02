@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies (e.g. for confluent-kafka compilation if needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
