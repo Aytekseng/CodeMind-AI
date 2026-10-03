@@ -32,8 +32,8 @@ export function LoadingTerminal() {
     (session.selectedModel === "gemini-3.8-flash" || session.selectedModel === "gemini-1.5-flash") ? "Gemini 3.8 Flash" :
     session.selectedModel === "groq-llama3-70b" ? "Groq Llama 3.3 70B" :
     session.selectedModel === "qwen2.5-coder" ? "Qwen 2.5 Coder" :
-    session.selectedModel === "gpt-4o" ? "OpenAI GPT-4o" :
-    session.selectedModel === "claude-3-5-sonnet" ? "Claude 3.5 Sonnet" :
+    (session.selectedModel === "gpt-6-sol" || session.selectedModel === "gpt-4o") ? "OpenAI GPT-6.1 Sol" :
+    (session.selectedModel === "claude-sonnet-5-5" || session.selectedModel === "claude-3-5-sonnet") ? "Claude Sonnet 5.5" :
     "Llama 3"
   )
 

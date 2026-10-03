@@ -71,8 +71,8 @@ export function Header() {
       if (saved === "gemini-3.8-flash" || saved === "gemini-1.5-flash") setActiveModel({ name: "Gemini 3.8 Flash", icon: "⚡" })
       else if (saved === "groq-llama3-70b") setActiveModel({ name: "Groq Llama 3.3", icon: "🚀" })
       else if (saved === "qwen2.5-coder") setActiveModel({ name: "Qwen 2.5 Coder", icon: "💻" })
-      else if (saved === "gpt-4o") setActiveModel({ name: "OpenAI GPT-4o", icon: "🧠" })
-      else if (saved === "claude-3-5-sonnet") setActiveModel({ name: "Claude 3.5 Sonnet", icon: "🛡️" })
+      else if (saved === "gpt-6-sol" || saved === "gpt-4o") setActiveModel({ name: "OpenAI GPT-6.1 Sol", icon: "🧠" })
+      else if (saved === "claude-sonnet-5-5" || saved === "claude-3-5-sonnet") setActiveModel({ name: "Claude Sonnet 5.5", icon: "🛡️" })
       else setActiveModel({ name: "Llama 3 8B", icon: "🦙" })
     }
 

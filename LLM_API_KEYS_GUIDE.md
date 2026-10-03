@@ -14,8 +14,8 @@ Bu rehber, sistemde desteklenen tüm yapay zeka modelleri için API anahtarları
 | **💻 Qwen 2.5 Coder 7B** | Alibaba / Ollama | Yerel (Cihazınızda) | **Tamamen Ücretsiz** | ❌ Hayır | `ollama run qwen2.5-coder:7b` |
 | **⚡ Gemini 3.8 Flash** | Google Cloud | Bulut API | BYOK (Google AI Key / Free Tier) | ✅ Evet | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **🚀 Groq Llama 3.3 70B** | Groq LPU Cloud | Bulut API | **Ücretsiz Tier (300+ token/s)** | ✅ Evet | [Groq Cloud Console](https://console.groq.com/keys) |
-| **🧠 OpenAI GPT-4o** | OpenAI | Bulut API | Ücretli / BYOK | ✅ Evet | [OpenAI Platform](https://platform.openai.com/api-keys) |
-| **🛡️ Claude 3.5 Sonnet** | Anthropic | Bulut API | Ücretli / BYOK | ✅ Evet | [Anthropic Console](https://console.anthropic.com/settings/keys) |
+| **🧠 OpenAI GPT-6.1 Sol** | OpenAI | Bulut API | Ücretli / BYOK | ✅ Evet | [OpenAI Platform](https://platform.openai.com/api-keys) |
+| **🛡️ Claude Sonnet 5.5** | Anthropic | Bulut API | Ücretli / BYOK | ✅ Evet | [Anthropic Console](https://console.anthropic.com/settings/keys) |
 
 ---
 
@@ -75,17 +75,17 @@ Groq LPU (Language Processing Unit) mimarisi sayesinde devasa 70 Milyar parametr
 
 Kendi OpenAI veya Anthropic bakiyenizi kullanarak kodlarınızı en güçlü küresel modellerle denetleyebilirsiniz.
 
-### 1) 🧠 OpenAI GPT-4o / GPT-4o-mini
+### 1) 🧠 OpenAI GPT-6.1 Sol / GPT-6 Astra
 1. [OpenAI Platform API Keys](https://platform.openai.com/api-keys) sayfasına gidin.
 2. Giriş yapıp **"Create new secret key"** butonuna tıklayın.
 3. Anahtarınızı kopyalayın (`sk-proj-...` veya `sk-...`).
-4. CodeMind-AI **Ayarlar** sayfasında **OpenAI GPT-4o** modelini seçip anahtarınızı yapıştırın.
+4. CodeMind-AI **Ayarlar** sayfasında **OpenAI GPT-6.1 Sol** modelini seçip anahtarınızı yapıştırın.
 
-### 2) 🛡️ Anthropic Claude 3.5 Sonnet
+### 2) 🛡️ Anthropic Claude Sonnet 5.5 / Opus 5.5
 1. [Anthropic Console API Keys](https://console.anthropic.com/settings/keys) sayfasına gidin.
 2. Hesabınıza giriş yapın ve **"Create Key"** butonuna tıklayın.
 3. Anahtarınızı kopyalayın (`sk-ant-api03-...`).
-4. CodeMind-AI **Ayarlar** sayfasında **Claude 3.5 Sonnet** modelini seçip anahtarınızı yapıştırın.
+4. CodeMind-AI **Ayarlar** sayfasında **Claude Sonnet 5.5** modelini seçip anahtarınızı yapıştırın.
 
 ---
 

@@ -123,8 +123,8 @@ def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
     - 💻 Qwen 2.5 Coder 7B (Yerel Ollama - Ücretsiz)
     - ⚡ Google Gemini Flash (Entegre Bulut - Ücretsiz)
     - 🚀 Groq Llama 3.3 70B (Entegre Bulut - Ücretsiz)
-    - ⚡ OpenAI GPT-4o / GPT-4o-mini (BYOK)
-    - 🧠 Anthropic Claude 3.5 Sonnet (BYOK)
+    - ⚡ OpenAI GPT-6.1 Sol / Astra (BYOK)
+    - 🧠 Anthropic Claude Sonnet 5.5 / Opus 5.5 (BYOK)
     """
     model_lower = (model_name or "llama3").lower().strip()
 
@@ -174,14 +174,14 @@ def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
             temperature=0.2
         ), "Qwen 2.5 Coder 7B (Yerel)"
 
-    # 4. OpenAI GPT-4o / GPT-4o-mini (BYOK)
+    # 4. OpenAI GPT-6.1 Sol / GPT-6 Astra (BYOK)
     elif "gpt" in model_lower or "openai" in model_lower:
         from langchain_openai import ChatOpenAI
         key = custom_api_key or settings.OPENAI_API_KEY
         if not key:
             raise ValueError("OpenAI modelleri için API anahtarı gereklidir. Lütfen geçerli bir OpenAI API Key girin.")
         
-        target_model = "gpt-4o" if "gpt-4o" in model_lower else "gpt-4o-mini"
+        target_model = "gpt-6.1-sol" if "sol" in model_lower or "mini" in model_lower else "gpt-6-astra"
         print(f"[AI Service] ⚡ OpenAI ({target_model}) modeli başlatılıyor...")
         return ChatOpenAI(
             model=target_model,
@@ -189,19 +189,20 @@ def get_llm_instance(model_name: str = "llama3", custom_api_key: str = ""):
             temperature=0.2
         ), f"OpenAI {target_model.upper()}"
 
-    # 5. Anthropic Claude 3.5 Sonnet (BYOK)
+    # 5. Anthropic Claude Sonnet 5.5 (BYOK)
     elif "claude" in model_lower or "anthropic" in model_lower:
         from langchain_anthropic import ChatAnthropic
         key = custom_api_key or settings.ANTHROPIC_API_KEY
         if not key:
             raise ValueError("Claude modeli için API anahtarı gereklidir. Lütfen geçerli bir Anthropic API Key girin.")
         
-        print("[AI Service] 🧠 Anthropic Claude 3.5 Sonnet modeli başlatılıyor...")
+        target_model = "claude-opus-5.5" if "opus" in model_lower else "claude-sonnet-5.5"
+        print(f"[AI Service] 🧠 Anthropic ({target_model}) modeli başlatılıyor...")
         return ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model=target_model,
             api_key=key,
             temperature=0.2
-        ), "Claude 3.5 Sonnet"
+        ), "Claude Sonnet 5.5"
 
     # 6. Varsayılan / Yerel: Ollama Llama 3 8B
     else:

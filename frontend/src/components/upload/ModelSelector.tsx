@@ -70,27 +70,27 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     keyPlaceholder: "gsk_...",
   },
   {
-    id: "gpt-4o",
-    name: "OpenAI GPT-4o",
+    id: "gpt-6-sol",
+    name: "OpenAI GPT-6.1 Sol",
     category: "byok",
     provider: "OpenAI",
     badge: "BYOK (Kendi Keyiniz)",
     badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
     icon: "🧠",
-    description: "Endüstri lideri mantıksal doğruluk ve en kapsamlı OWASP güvenlik denetimi.",
+    description: "OpenAI'ın en güncel kod analizi ve otonom denetim odaklı amiral gemisi modeli.",
     requiresApiKey: true,
     keyStorageKey: "codemind_openai_api_key",
     keyPlaceholder: "sk-proj-...",
   },
   {
-    id: "claude-3-5-sonnet",
-    name: "Claude 3.5 Sonnet",
+    id: "claude-sonnet-5-5",
+    name: "Claude Sonnet 5.5",
     category: "byok",
     provider: "Anthropic",
     badge: "BYOK (Kendi Keyiniz)",
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
     icon: "🛡️",
-    description: "Kod analizi ve derin siber zafiyet tespitinde dünyanın en gelişmiş yapay zeka modeli.",
+    description: "Kod analizi, siber zafiyet tespiti ve mantıksal doğrulukta Anthropic'in en yeni nesil amiral gemisi modeli.",
     requiresApiKey: true,
     keyStorageKey: "codemind_anthropic_api_key",
     keyPlaceholder: "sk-ant-api03-...",
@@ -112,7 +112,11 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [activeTab, setActiveTab] = React.useState<"all" | "free" | "byok">("all")
   const [showKey, setShowKey] = React.useState<boolean>(false)
-  const normalizedSelectedModel = selectedModel === "gemini-1.5-flash" ? "gemini-3.8-flash" : selectedModel
+  const normalizedSelectedModel = 
+    selectedModel === "gemini-1.5-flash" ? "gemini-3.8-flash" :
+    selectedModel === "gpt-4o" ? "gpt-6-sol" :
+    selectedModel === "claude-3-5-sonnet" ? "claude-sonnet-5-5" :
+    selectedModel
   const currentModel = AVAILABLE_MODELS.find((m) => m.id === normalizedSelectedModel) || AVAILABLE_MODELS[0]
 
   // Automatically load saved API key from localStorage when model changes

@@ -715,8 +715,8 @@ public class DocumentService : IDocumentService
         if (m.Contains("llama")) return "Llama 3 (Yerel)";
         if (m.Contains("qwen")) return "Qwen 2.5 Coder 7B (Yerel)";
         if (m.Contains("gemini")) return "Google Gemini";
-        if (m.Contains("gpt") || m.Contains("openai")) return "OpenAI GPT-4o";
-        if (m.Contains("claude") || m.Contains("anthropic")) return "Claude 3.5 Sonnet";
+        if (m.Contains("gpt") || m.Contains("openai")) return "OpenAI GPT-6.1 Sol";
+        if (m.Contains("claude") || m.Contains("anthropic")) return "Claude Sonnet 5.5";
         return model;
     }
 }

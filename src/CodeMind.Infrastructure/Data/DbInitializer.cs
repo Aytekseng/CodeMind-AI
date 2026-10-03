@@ -18,24 +18,31 @@ public static class DbInitializer
             logger.LogInformation("Veritabanı migration başarıyla tamamlandı.");
 
             // Varsayılan şirket ve admin kontrolü
-            var hasTenants = await context.Tenants.IgnoreQueryFilters().AnyAsync();
-            if (!hasTenants)
+            var defaultTenant = await context.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Name == "CodeMind Security Corp")
+                ?? await context.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+
+            if (defaultTenant == null)
             {
                 logger.LogInformation("Sistemde kayıtlı organizasyon bulunamadı. Varsayılan demo veriler oluşturuluyor...");
 
-                var demoTenant = new Tenant
+                defaultTenant = new Tenant
                 {
                     Id = Guid.NewGuid(),
                     Name = "CodeMind Security Corp",
                     SubscriptionTier = SubscriptionTier.Enterprise
                 };
 
-                context.Tenants.Add(demoTenant);
+                context.Tenants.Add(defaultTenant);
+                await context.SaveChangesAsync();
+            }
 
+            var adminExists = await context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "admin@codemind.ai");
+            if (!adminExists)
+            {
                 var adminUser = new User
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = demoTenant.Id,
+                    TenantId = defaultTenant.Id,
                     Email = "admin@codemind.ai",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
                     FirstName = "System",
@@ -43,11 +50,16 @@ public static class DbInitializer
                     Role = "Admin",
                     MustChangePassword = false
                 };
+                context.Users.Add(adminUser);
+            }
 
+            var devExists = await context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "dev@codemind.ai");
+            if (!devExists)
+            {
                 var devUser = new User
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = demoTenant.Id,
+                    TenantId = defaultTenant.Id,
                     Email = "dev@codemind.ai",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
                     FirstName = "Junior",
@@ -55,20 +67,23 @@ public static class DbInitializer
                     Role = "Developer",
                     MustChangePassword = false
                 };
+                context.Users.Add(devUser);
+            }
 
+            var hasProjects = await context.Projects.IgnoreQueryFilters().AnyAsync(p => p.TenantId == defaultTenant.Id);
+            if (!hasProjects)
+            {
                 var demoProject = new Project
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = demoTenant.Id,
+                    TenantId = defaultTenant.Id,
                     Name = "Sample Vulnerability Scanner Project"
                 };
-
-                context.Users.AddRange(adminUser, devUser);
                 context.Projects.Add(demoProject);
-
-                await context.SaveChangesAsync();
-                logger.LogInformation("Varsayılan demo hesaplar başarıyla oluşturuldu! (admin@codemind.ai / dev@codemind.ai - Parola: Password123!)");
             }
+
+            await context.SaveChangesAsync();
+            logger.LogInformation("Varsayılan demo hesaplar kontrol edildi ve hazırlandı (admin@codemind.ai / dev@codemind.ai - Parola: Password123!)");
         }
         catch (Exception ex)
         {
