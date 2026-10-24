@@ -1,31 +1,34 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal
+from uuid import UUID
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class FileUploadedEvent(BaseModel):
-    """
-    .NET Core API'den Kafka'ya gönderilen mesajın (event) Python karşılığı.
-    Buradaki alan adları, C# tarafındaki record veya class özellikleri ile (JSON formatında) birebir eşleşmelidir.
-    """
-    file_id: str = Field(alias="FileId", default="")
-    file_name: str = Field(alias="FileName", default="")
-    file_path: str = Field(alias="FilePath", default="")
-    object_key: str = Field(alias="ObjectKey", default="")
-    user_id: str = Field(alias="UploadedByUserId", default="")
-    tenant_id: Optional[str] = Field(alias="TenantId", default=None)
-    model: Optional[str] = Field(alias="Model", default="llama3")
-    key_token: Optional[str] = Field(alias="KeyToken", default=None)
+    model_config = ConfigDict(populate_by_name=True)
+    file_id: str = Field(alias="FileId")
 
-    class Config:
-        populate_by_name = True
+    @field_validator("file_id")
+    @classmethod
+    def valid_id(cls, value):
+        return str(UUID(value))
+
+class Finding(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    title: str = Field(alias="Title", min_length=1, max_length=500)
+    severity: Literal["Kritik", "Yüksek", "Orta", "Düşük"] = Field(alias="Severity")
+    line_number: int = Field(alias="LineNumber", ge=1)
+    description: str = Field(alias="Description", min_length=1, max_length=6000)
+    recommendation: str = Field(alias="Recommendation", min_length=1, max_length=6000)
+
+class ChunkAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    findings: list[Finding] = Field(max_length=100)
 
 class AnalysisCompletedEvent(BaseModel):
-    """AI Worker'dan C# tarafına gönderilecek sonuç mesajı."""
+    model_config = ConfigDict(populate_by_name=True)
     file_id: str = Field(alias="FileId")
-    severity: str = Field(alias="Severity", default="Medium")
+    severity: str = Field(alias="Severity", default="Temiz")
     ai_suggestion: str = Field(alias="AiSuggestion", default="")
-    model_used: Optional[str] = Field(alias="ModelUsed", default="Llama 3")
+    model_used: str = Field(alias="ModelUsed", default="")
     is_success: bool = Field(alias="IsSuccess", default=True)
-    error_message: Optional[str] = Field(alias="ErrorMessage", default=None)
-
-    class Config:
-        populate_by_name = True
+    error_message: str | None = Field(alias="ErrorMessage", default=None)
+    findings: list[Finding] = Field(alias="Findings", default_factory=list)

@@ -1,4 +1,5 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
 import {
@@ -24,12 +25,16 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 
 export function ProfileSettingsCard() {
+  const { user } = useAuth()
+  return user ? <ProfileSettingsForm key={`${user.userId}:${user.email}:${user.firstName}:${user.lastName}`} /> : null
+}
+function ProfileSettingsForm() {
   const { user, updateProfile } = useAuth()
 
   // Form states
-  const [firstName, setFirstName] = React.useState("")
-  const [lastName, setLastName] = React.useState("")
-  const [email, setEmail] = React.useState("")
+  const [firstName, setFirstName] = React.useState(user?.firstName || "")
+  const [lastName, setLastName] = React.useState(user?.lastName || "")
+  const [email, setEmail] = React.useState(user?.email || "")
   const [phoneNumber, setPhoneNumber] = React.useState("")
 
   // Password change states
@@ -41,15 +46,6 @@ export function ProfileSettingsCard() {
   const [showNewPassword, setShowNewPassword] = React.useState(false)
 
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-
-  // Sync state when user profile loads
-  React.useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName || "")
-      setLastName(user.lastName || "")
-      setEmail(user.email || "")
-    }
-  }, [user])
 
   if (!user) return null
 
@@ -75,8 +71,8 @@ export function ProfileSettingsCard() {
         toast.error("Lütfen yeni şifrenizi girin.")
         return
       }
-      if (newPassword.length < 6) {
-        toast.error("Yeni şifreniz en az 6 karakter olmalıdır.")
+      if (newPassword.length < 12) {
+        toast.error("Yeni şifreniz en az 12 karakter olmalıdır.")
         return
       }
       if (newPassword !== confirmPassword) {
@@ -87,7 +83,7 @@ export function ProfileSettingsCard() {
 
     setIsSubmitting(true)
     try {
-      const payload: any = {
+      const payload: import("@/services/authService").UpdateProfilePayload = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -111,7 +107,8 @@ export function ProfileSettingsCard() {
       } else {
         toast.error(res.message || "Profil güncellenirken bir hata oluştu.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "Sunucuyla iletişim kurulurken beklenmeyen bir hata oluştu.")
     } finally {
       setIsSubmitting(false)

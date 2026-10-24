@@ -6,7 +6,7 @@ export interface DocumentHistoryItem {
   id: string
   fileName: string
   language: string
-  createdAt: string
+  createdAt: string | null
   status: string
   severity: string
   score: number
@@ -22,7 +22,7 @@ export interface DocumentReportDetail {
   fileName: string
   language: string
   status: string
-  createdAt: string
+  createdAt: string | null
   severity: string
   score: number
   aiSuggestion: string
@@ -35,7 +35,7 @@ export interface DocumentReportDetail {
 
 export interface DashboardStats {
   totalDocuments: number
-  averageScore: number
+  averageScore: number | null
   criticalCount: number
   highCount: number
   mediumCount: number
@@ -177,11 +177,12 @@ export function printDocumentReport(report: DocumentReportDetail, companyName?: 
     ? "#d97706"
     : "#059669"
 
+  const escapeHtml = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
   const html = `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Güvenlik Denetim Raporu - ${report.fileName}</title>
+  <title>Güvenlik Denetim Raporu - ${escapeHtml(report.fileName)}</title>
   <style>
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -286,28 +287,28 @@ export function printDocumentReport(report: DocumentReportDetail, companyName?: 
     </div>
     <div style="text-align: right; font-size: 12px; color: #64748b;">
       <div><strong>Tarih:</strong> ${new Date().toLocaleDateString("tr-TR")}</div>
-      <div><strong>Şirket:</strong> ${companyName || "CodeMind Workspace"}</div>
+      <div><strong>Şirket:</strong> ${escapeHtml(companyName || "CodeMind Workspace")}</div>
     </div>
   </div>
 
   <table class="meta-table">
     <tr>
       <td class="label">Dosya Adı</td>
-      <td><strong>${report.fileName}</strong></td>
+      <td><strong>${escapeHtml(report.fileName)}</strong></td>
       <td class="label">Proje</td>
-      <td>${report.projectName || "-"}</td>
+      <td>${escapeHtml(report.projectName || "-")}</td>
     </tr>
     <tr>
       <td class="label">Programlama Dili</td>
-      <td>${report.language?.toUpperCase() || "Bilinmiyor"}</td>
+      <td>${escapeHtml(report.language?.toUpperCase() || "Bilinmiyor")}</td>
       <td class="label">Kullanılan Yapay Zeka</td>
-      <td>${report.modelUsed || "Llama 3"}</td>
+      <td>${escapeHtml(report.modelUsed || "Llama 3")}</td>
     </tr>
     <tr>
       <td class="label">Zafiyet Seviyesi</td>
-      <td><span class="badge">${report.severity || "Güvenli"}</span></td>
+      <td><span class="badge">${escapeHtml(report.severity || "Güvenli")}</span></td>
       <td class="label">Güvenlik Skoru</td>
-      <td><strong>${report.score ?? 85} / 100</strong></td>
+      <td><strong>${report.status === "Completed" ? `${report.score} / 100` : "—"}</strong></td>
     </tr>
   </table>
 

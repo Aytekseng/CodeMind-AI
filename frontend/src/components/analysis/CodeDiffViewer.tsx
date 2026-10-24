@@ -136,7 +136,7 @@ export function CodeDiffViewer({
             Orijinal Dosya Kaynak Kodu
           </span>
           <span className="text-[11px] text-zinc-500">
-            AI analizini görmek için <strong className="text-emerald-400 font-medium">"AI Çözüm Önerisi"</strong> sekmesine geçin
+            AI analizini görmek için <strong className="text-emerald-400 font-medium">&quot;AI Çözüm Önerisi&quot;</strong> sekmesine geçin
           </span>
         </div>
       ) : (

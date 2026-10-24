@@ -9,7 +9,7 @@ namespace CodeMind.Infrastructure.Data;
 
 public static class DbInitializer
 {
-    public static async Task InitializeAsync(AppDbContext context, ILogger logger)
+    public static async Task InitializeAsync(AppDbContext context, ILogger logger, bool seedDemoData = false)
     {
         try
         {
@@ -17,9 +17,10 @@ public static class DbInitializer
             await context.Database.MigrateAsync();
             logger.LogInformation("Veritabanı migration başarıyla tamamlandı.");
 
-            // Varsayılan şirket ve admin kontrolü
-            var defaultTenant = await context.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Name == "CodeMind Security Corp")
-                ?? await context.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+            if (!seedDemoData) return;
+
+            // Demo seed is opt-in and never targets an existing customer workspace.
+            var defaultTenant = await context.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Name == "CodeMind Security Corp");
 
             if (defaultTenant == null)
             {
@@ -48,7 +49,7 @@ public static class DbInitializer
                     FirstName = "System",
                     LastName = "Administrator",
                     Role = "Admin",
-                    MustChangePassword = false
+                    MustChangePassword = true
                 };
                 context.Users.Add(adminUser);
             }
@@ -65,7 +66,7 @@ public static class DbInitializer
                     FirstName = "Junior",
                     LastName = "Developer",
                     Role = "Developer",
-                    MustChangePassword = false
+                    MustChangePassword = true
                 };
                 context.Users.Add(devUser);
             }

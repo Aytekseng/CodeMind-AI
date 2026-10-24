@@ -46,6 +46,7 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem("token")
       localStorage.removeItem("accessToken")
       localStorage.removeItem("user")
+      window.dispatchEvent(new Event("codemind-session-expired"))
     }
     return Promise.reject(error)
   }
@@ -60,12 +61,12 @@ export const api = {
     return response.data
   },
 
-  post: async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+  post: async <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
     const response = await axiosInstance.post<T>(url, data, config)
     return response.data
   },
 
-  put: async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+  put: async <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
     const response = await axiosInstance.put<T>(url, data, config)
     return response.data
   },
@@ -146,12 +147,12 @@ export const api = {
             const parsed = JSON.parse(xhr.responseText)
             resolve(parsed)
           } catch {
-            resolve(xhr.responseText as any)
+            resolve(xhr.responseText as T)
           }
         } else {
           try {
             const errorJson = JSON.parse(xhr.responseText)
-            resolve(errorJson as any)
+            resolve(errorJson as T)
           } catch {
             reject(new Error(`Yükleme başarısız (HTTP ${xhr.status}): ${xhr.statusText}`))
           }

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { FileCode2, Archive, X, Play, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+
 import { cn } from "@/lib/utils"
 
 interface FilePreviewCardProps {

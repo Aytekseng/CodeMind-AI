@@ -1,4 +1,5 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
 import { ShieldAlert, KeyRound, Lock, Loader2, CheckCircle2 } from "lucide-react"
@@ -29,8 +30,8 @@ export function MandatoryPasswordChangeModal() {
       return
     }
 
-    if (newPassword.length < 6) {
-      setError("Yeni şifreniz en az 6 karakter uzunluğunda olmalıdır.")
+    if (newPassword.length < 12) {
+      setError("Yeni şifreniz en az 12 karakter uzunluğunda olmalıdır.")
       return
     }
 
@@ -61,7 +62,8 @@ export function MandatoryPasswordChangeModal() {
       } else {
         setError(res.message || "Şifre güncellenirken bir hata oluştu.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       setError(err?.message || "Sunucuyla iletişim kurulurken bir hata oluştu.")
     } finally {
       setIsSubmitting(false)

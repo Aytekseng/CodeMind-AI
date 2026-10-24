@@ -13,8 +13,12 @@ public interface IAppDbContext
     DbSet<Project> Projects { get; set; }
     DbSet<Document> Documents { get; set; }
     DbSet<AnalysisReport> AnalysisReports { get; set; }
+    DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade Database { get; }
+
+    Task DeleteLegacyEmbeddingsAsync(Guid[] documentIds);
+    Task<bool> LockTenantAsync(Guid tenantId);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

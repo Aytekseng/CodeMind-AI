@@ -2,7 +2,7 @@
 
 import React from "react"
 import Link from "next/link"
-import { Lock, ShieldAlert, LogIn, UserPlus, ArrowLeft, Loader2, Sparkles } from "lucide-react"
+import { Lock, ShieldAlert, LogIn, UserPlus, ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"

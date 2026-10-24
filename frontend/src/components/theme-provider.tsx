@@ -8,7 +8,6 @@ interface ThemeProviderProps {
   defaultTheme?: string
   enableSystem?: boolean
   disableTransitionOnChange?: boolean
-  [key: string]: any
 }
 
 interface ThemeContextType {

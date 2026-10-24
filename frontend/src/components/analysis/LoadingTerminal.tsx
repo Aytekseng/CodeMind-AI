@@ -1,4 +1,5 @@
 "use client"
+import { useRouter } from "next/navigation"
 
 import * as React from "react"
 import { Terminal, Shield, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, Sparkles, UploadCloud } from "lucide-react"
@@ -7,11 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { useAnalysis, LogLine } from "@/context/AnalysisContext"
 
 export function LoadingTerminal() {
+  const router = useRouter()
   const { session, resetAnalysis } = useAnalysis()
   const {
     fileName,
     isUploading,
-    uploadSuccess,
     uploadError,
     documentId,
     batchInfo,
@@ -84,7 +85,7 @@ export function LoadingTerminal() {
           {uploadError ? (
             <Badge variant="destructive" className="gap-1 text-[11px]">
               <AlertTriangle className="h-3 w-3" />
-              <span>Analiz İptal Edildi</span>
+              <span>İşlem Hatası</span>
             </Badge>
           ) : isCompleted ? (
             <Badge variant="success" className="gap-1 text-[11px]">
@@ -156,7 +157,7 @@ export function LoadingTerminal() {
       </div>
 
       {/* Terminal Bottom Action Area (Always visible when completed or error) */}
-      {isCompleted ? (
+      {isCompleted && !uploadError ? (
         <div className="border-t border-white/10 bg-[#0d101a] p-5">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -184,6 +185,7 @@ export function LoadingTerminal() {
                 variant="outline"
                 size="sm"
                 onClick={resetAnalysis}
+                disabled={isUploading}
                 className="gap-2 text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 cursor-pointer"
               >
                 <UploadCloud className="h-4 w-4 text-cyan-400" />
@@ -195,9 +197,9 @@ export function LoadingTerminal() {
                 size="sm"
                 onClick={() => {
                   if (batchInfo?.projectId) {
-                    window.location.href = `/dashboard?projectId=${batchInfo.projectId}`
+                    router.push(`/dashboard?projectId=${batchInfo.projectId}`)
                   } else if (latestResult?.fileId || documentId) {
-                    window.location.href = `/dashboard?docId=${latestResult?.fileId || documentId}`
+                    router.push(`/dashboard?docId=${latestResult?.fileId || documentId}`)
                   }
                 }}
                 className="gap-2 text-xs cursor-pointer"
@@ -218,6 +220,7 @@ export function LoadingTerminal() {
             variant="outline"
             size="sm"
             onClick={resetAnalysis}
+                disabled={isUploading}
             className="text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/10 cursor-pointer shrink-0"
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1" />
@@ -234,6 +237,7 @@ export function LoadingTerminal() {
             variant="ghost"
             size="sm"
             onClick={resetAnalysis}
+                disabled={isUploading}
             className="text-xs text-zinc-400 hover:text-rose-400 h-7 px-2 cursor-pointer"
           >
             İptal Et / Yeni Yükleme

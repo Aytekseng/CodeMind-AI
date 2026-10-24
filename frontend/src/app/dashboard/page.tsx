@@ -1,9 +1,11 @@
 "use client"
+import { useRouter } from "next/navigation"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, ShieldAlert, Sparkles, FileCode2, ArrowUpRight, Loader2, MousePointerClick, Download, Printer } from "lucide-react"
+import { ShieldCheck, ShieldAlert, Sparkles, FileCode2, ArrowUpRight, Loader2, Download, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScoreRadarChart } from "@/components/dashboard/ScoreRadarChart"
@@ -14,19 +16,10 @@ import { FileTreeExplorer } from "@/components/dashboard/FileTreeExplorer"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
-import {
-  DashboardStats,
-  DocumentReportDetail,
-  ProjectFile,
-  getDashboardStatsAsync,
-  getDocumentReportAsync,
-  getProjectFilesAsync,
-  exportDocumentReportJsonAsync,
-  exportDocumentReportPdfAsync,
-  printDocumentReport,
-} from "@/services/documentService"
+import { DashboardStats, DocumentReportDetail, ProjectFile, getDashboardStatsAsync, getDocumentReportAsync, getProjectFilesAsync, exportDocumentReportJsonAsync, exportDocumentReportPdfAsync, printDocumentReport,  } from "@/services/documentService"
 
 function DashboardContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
   const docId = searchParams.get("docId")
@@ -36,7 +29,7 @@ function DashboardContent() {
   const [reportDetail, setReportDetail] = React.useState<DocumentReportDetail | null>(null)
   const [projectFiles, setProjectFiles] = React.useState<ProjectFile[]>([])
   const [selectedDocId, setSelectedDocId] = React.useState<string | null>(docId)
-  const [loading, setLoading] = React.useState<boolean>(true)
+  const [, setLoading] = React.useState<boolean>(true)
   const [isExportingJson, setIsExportingJson] = React.useState<boolean>(false)
   const [isExportingPdf, setIsExportingPdf] = React.useState<boolean>(false)
 
@@ -48,7 +41,8 @@ function DashboardContent() {
       toast.success("PDF güvenlik raporu indirildi!", {
         description: `${fileName} başarıyla kaydedildi.`
       })
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "PDF indirilirken hata oluştu.")
     } finally {
       setIsExportingPdf(false)
@@ -63,7 +57,8 @@ function DashboardContent() {
       toast.success("Güvenlik raporu indirildi!", {
         description: `${fileName} JSON dosyası olarak kaydedildi.`
       })
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "Rapor indirilirken hata oluştu.")
     } finally {
       setIsExportingJson(false)
@@ -202,7 +197,7 @@ function DashboardContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-extrabold text-emerald-400 font-mono">
-              {stats?.averageScore ?? 85.0}/100
+              {stats?.averageScore == null ? "—" : `${stats.averageScore}/100`}
             </div>
             <p className="text-[11px] text-zinc-400 mt-1">
               Genel Kod Sağlığı
@@ -213,7 +208,7 @@ function DashboardContent() {
 
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ScoreRadarChart />
+        <ScoreRadarChart score={stats?.averageScore} />
         <SeverityBreakdown data={severityData} />
       </div>
 
@@ -324,14 +319,14 @@ function DashboardContent() {
             <div className="space-y-1.5 max-w-md">
               <h3 className="text-base font-semibold text-white">İncelenecek Kod Dosyası Seçilmedi</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Aşağıdaki <span className="text-zinc-200 font-medium">Geçmiş Analiz Raporları</span> tablosundan bir dosyanın yanındaki <span className="text-cyan-400 font-semibold">"İncele"</span> butonuna tıklayarak veya yeni bir dosya yükleyerek kod içeriğini ve yapay zekanın güvenlik analiz raporunu burada detaylıca inceleyebilirsiniz.
+                Aşağıdaki <span className="text-zinc-200 font-medium">Geçmiş Analiz Raporları</span> tablosundan bir dosyanın yanındaki <span className="text-cyan-400 font-semibold">&quot;İncele&quot;</span> butonuna tıklayarak veya yeni bir dosya yükleyerek kod içeriğini ve yapay zekanın güvenlik analiz raporunu burada detaylıca inceleyebilirsiniz.
               </p>
             </div>
             <div className="flex items-center gap-3 pt-2">
               <Button
                 variant="cyber"
                 size="sm"
-                onClick={() => (window.location.href = "/")}
+                onClick={() => router.push("/")}
                 className="text-xs"
               >
                 Yeni Kod Dosyası Yükle

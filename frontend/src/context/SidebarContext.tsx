@@ -1,5 +1,6 @@
 "use client"
 
+import { useStoredPreference } from "@/hooks/useStoredPreference"
 import * as React from "react"
 
 interface SidebarContextType {
@@ -11,22 +12,10 @@ interface SidebarContextType {
 const SidebarContext = React.createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = React.useState<boolean>(false)
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem("codemind_sidebar_collapsed")
-    if (saved !== null) {
-      setIsCollapsed(saved === "true")
-    }
-  }, [])
-
-  const toggleSidebar = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem("codemind_sidebar_collapsed", String(next))
-      return next
-    })
-  }
+  const [stored, setStored] = useStoredPreference("codemind_sidebar_collapsed", "false")
+  const isCollapsed = stored === "true"
+  const setIsCollapsed = (value: boolean) => setStored(String(value))
+  const toggleSidebar = () => setIsCollapsed(!isCollapsed)
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleSidebar, setIsCollapsed }}>

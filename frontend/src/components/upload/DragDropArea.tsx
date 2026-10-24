@@ -1,4 +1,7 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
+
+import { getApiKey } from "@/lib/apiKeys"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -6,7 +9,7 @@ import { UploadCloud, AlertCircle, Lock, Eye, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FilePreviewCard } from "@/components/upload/FilePreviewCard"
 import { LoadingTerminal } from "@/components/analysis/LoadingTerminal"
-import { ModelSelector, AVAILABLE_MODELS } from "@/components/upload/ModelSelector"
+import { AVAILABLE_MODELS, normalizeModelId } from "@/components/upload/ModelSelector"
 import { uploadDocumentAsync } from "@/services/documentService"
 import { useAuth } from "@/hooks/useAuth"
 import { useAnalysis } from "@/context/AnalysisContext"
@@ -15,13 +18,13 @@ import { toast } from "sonner"
 const ALLOWED_EXTENSIONS = [
   "cs", "py", "js", "jsx", "ts", "tsx", "go", "java", "cpp", "c", "sql", "json", "yml", "yaml", "html", "css", "zip"
 ]
-const MAX_SINGLE_FILE_SIZE_MB = 10
+const MAX_SINGLE_FILE_SIZE_MB = 1
 const MAX_ZIP_FILE_SIZE_MB = 50
 
 export function DragDropArea() {
   const router = useRouter()
   const { isAuthenticated, user } = useAuth()
-  const { session, startAnalysis, setUploadSuccess, setUploadError, resetAnalysis } = useAnalysis()
+  const { session, startAnalysis, setUploadSuccess, setUploadError } = useAnalysis()
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
   const [selectedModel, setSelectedModel] = React.useState<string>("llama3")
@@ -96,11 +99,11 @@ export function DragDropArea() {
 
   React.useEffect(() => {
     const updateModelFromStorage = () => {
-      const savedModel = localStorage.getItem("codemind_selected_model") || "llama3"
+      const savedModel = normalizeModelId(localStorage.getItem("codemind_selected_model") || "llama3")
       setSelectedModel(savedModel)
       const modelObj = AVAILABLE_MODELS.find((m) => m.id === savedModel)
       if (modelObj?.requiresApiKey && modelObj.keyStorageKey) {
-        setApiKey(localStorage.getItem(modelObj.keyStorageKey) || "")
+        setApiKey(getApiKey(modelObj.keyStorageKey) || "")
       } else {
         setApiKey("")
       }
@@ -131,10 +134,10 @@ export function DragDropArea() {
       return
     }
 
-    const currentModelId = localStorage.getItem("codemind_selected_model") || selectedModel || "llama3"
+    const currentModelId = normalizeModelId(localStorage.getItem("codemind_selected_model") || selectedModel || "llama3")
     const modelObj = AVAILABLE_MODELS.find((m) => m.id === currentModelId) || AVAILABLE_MODELS[0]
     const storedKey = (modelObj.requiresApiKey && modelObj.keyStorageKey)
-      ? (localStorage.getItem(modelObj.keyStorageKey) || apiKey)
+      ? (getApiKey(modelObj.keyStorageKey) || apiKey)
       : apiKey
 
     if (modelObj.requiresApiKey && !storedKey?.trim()) {
@@ -152,9 +155,7 @@ export function DragDropArea() {
 
     try {
       const effectiveApiKey = modelObj.requiresApiKey ? (storedKey?.trim() || undefined) : undefined
-      console.log(`[DragDropArea] Dosya yükleniyor: ${selectedFile.name} (Model: ${currentModelId}, HasKey: ${Boolean(effectiveApiKey)})`)
       const response = await uploadDocumentAsync(selectedFile, currentModelId, effectiveApiKey)
-      console.log("[DragDropArea] API Yanıtı:", response)
 
       if (response && response.isSuccess) {
         if (response.data?.totalExtractedFiles && response.data.totalExtractedFiles > 0) {
@@ -174,7 +175,8 @@ export function DragDropArea() {
       } else {
         setUploadError(response?.errors?.[0] || response?.message || "Yükleme sırasında hata oluştu.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       console.error("[DragDropArea] Yükleme hatası:", err)
       setUploadError(err?.message || "Sunucu bağlantı hatası.")
     } finally {

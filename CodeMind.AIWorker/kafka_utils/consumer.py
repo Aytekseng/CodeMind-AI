@@ -1,81 +1,52 @@
 import json
+import time
 from confluent_kafka import Consumer, KafkaError
 from core.config import settings
 from schemas.events import FileUploadedEvent
+from kafka_utils.producer import publish
 
 def start_consuming():
-    """
-    Kafka'ya bağlanır ve belirtilen topic'i dinlemeye başlar.
-    """
-    # Kafka Consumer ayarları
-    conf = {
-        'bootstrap.servers': settings.KAFKA_BROKER,
-        'group.id': settings.KAFKA_GROUP_ID,
-        'auto.offset.reset': 'earliest', # Eğer daha önce okunmamış mesaj varsa baştan okur
-        'max.poll.interval.ms': 900000,  # 15 dakika (Llama 3 8B ve RAG analizlerinin zaman aşımına uğramasını engeller)
-        'session.timeout.ms': 45000,     # Heartbeat kontrolü için 45 saniye
-    }
-
-
-    consumer = Consumer(conf)
+    if len(settings.WORKER_SECRET) < 32:
+        raise RuntimeError("WORKER_SECRET must contain at least 32 characters")
+    consumer = Consumer({"bootstrap.servers": settings.KAFKA_BROKER, "group.id": settings.KAFKA_GROUP_ID,
+        "auto.offset.reset": "earliest", "enable.auto.commit": False, "enable.auto.offset.store": False,
+        "max.poll.interval.ms": 3600000, "session.timeout.ms": 45000})
     consumer.subscribe([settings.KAFKA_TOPIC])
-
-    print(f"[*] Kafka dinleniyor... Broker: {settings.KAFKA_BROKER} | Topic: {settings.KAFKA_TOPIC}")
-
     try:
         while True:
-            # 1 saniyelik zaman aşımı ile mesaj bekler
-            msg = consumer.poll(timeout=1.0)
-
+            msg = consumer.poll(1.0)
             if msg is None:
                 continue
-
             if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    # Partition sonuna gelindi, bu bir hata değil
-                    continue
-                elif msg.error().code() == KafkaError.UNKNOWN_TOPIC_OR_PART:
-                    # Topic henüz oluşturulmamış (veri gelmemiş), beklemeye devam et
-                    print(f"[!] Uyarı: Topic henüz yok ({msg.error()}). Bekleniyor...")
-                    import time
+                if msg.error().code() in (KafkaError._PARTITION_EOF, KafkaError.UNKNOWN_TOPIC_OR_PART):
                     time.sleep(2)
                     continue
-                else:
-                    print(f"[!] Kafka Hatası: {msg.error()}")
-                    break
-
-            # Mesaj başarıyla alındı!
-            # Byte formatındaki veriyi string (utf-8) formatına çeviriyoruz
-            raw_data = msg.value().decode('utf-8')
-            print(f"\n[+] Yeni Mesaj Yakalandı: {raw_data}")
-
+                raise RuntimeError("Kafka consumer error")
             try:
-                # JSON metnini ayrıştırıp Pydantic modelimize dönüştürüyoruz
-                json_dict = json.loads(raw_data)
-                event = FileUploadedEvent(**json_dict)
-                
-                print(f"    - 📄 Dosya Adı        : {event.file_name}")
-                print(f"    - 👤 Kullanıcı (User ID): {event.user_id or 'Belirtilmedi'}")
-                print(f"    - 🏢 Şirket (Tenant ID) : {event.tenant_id or 'Varsayılan'}")
-                
-                # AI / Chunking işlemlerini çağırıyoruz
-                from services.ai_service import process_uploaded_file
-                process_uploaded_file(event)
-
-                
-            except Exception as e:
-                err_msg = f"Mesaj işlenirken hata oluştu: {str(e)}"
-                print(f"[-] {err_msg}")
+                event = FileUploadedEvent.model_validate(json.loads(msg.value()))
+            except (ValueError, TypeError):
+                delay = 1
+                while True:
+                    try:
+                        publish("file-uploads-dead-letter", msg.value())
+                        break
+                    except Exception as error:
+                        print(f"Dead-letter delivery retry: {type(error).__name__}")
+                        time.sleep(delay)
+                        delay = min(delay * 2, 30)
+                consumer.commit(message=msg, asynchronous=False)
+                continue
+            from services.ai_service import process_uploaded_file
+            # Keep retrying this record on infrastructure/delivery failure; do not advance its offset.
+            delay = 1
+            while True:
                 try:
-                    if 'event' in locals() and hasattr(event, 'file_id') and event.file_id:
-                        from kafka_utils.producer import send_analysis_failure
-                        send_analysis_failure(event.file_id, str(e), getattr(event, 'model', ''))
-                except Exception as inner_err:
-                    print(f"[-] Hata bildirimi fırlatılamadı: {inner_err}")
-
-    except KeyboardInterrupt:
-        print("\n[!] Kullanıcı tarafından sonlandırıldı.")
+                    process_uploaded_file(event)
+                    consumer.commit(message=msg, asynchronous=False)
+                    break
+                except Exception as error:
+                    print(f"Job {event.file_id} retry: {type(error).__name__}")
+                    time.sleep(delay)
+                    delay = min(delay * 2, 30)
     finally:
-        # Program kapanırken consumer'ı temiz bir şekilde kapatır
         consumer.close()
-

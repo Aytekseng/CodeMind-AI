@@ -1,30 +1,23 @@
 "use client"
 
+
+
+import { useStoredPreference } from "@/hooks/useStoredPreference"
 import * as React from "react"
-import { Settings, Cpu, User, Building2 } from "lucide-react"
+import { Settings, Cpu } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth/AuthGuard"
-import { useAuth } from "@/hooks/useAuth"
-import { ModelSelector, AVAILABLE_MODELS } from "@/components/upload/ModelSelector"
+
+import { ModelSelector } from "@/components/upload/ModelSelector"
 
 import { ProfileSettingsCard } from "@/components/settings/ProfileSettingsCard"
 import { TeamManagementCard } from "@/components/settings/TeamManagementCard"
 import { DangerZoneCard } from "@/components/settings/DangerZoneCard"
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  const [selectedModel, setSelectedModel] = React.useState<string>("llama3")
+  const [selectedModel, setSelectedModel] = useStoredPreference("codemind_selected_model", "llama3")
   const [apiKey, setApiKey] = React.useState<string>("")
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem("codemind_selected_model") || "llama3"
-    setSelectedModel(saved)
-    const modelObj = AVAILABLE_MODELS.find((m) => m.id === saved)
-    if (modelObj?.keyStorageKey) {
-      setApiKey(localStorage.getItem(modelObj.keyStorageKey) || "")
-    }
-  }, [])
 
   return (
     <AuthGuard

@@ -53,262 +53,121 @@ public class DocumentService : IDocumentService
         _logger = logger;
     }
 
-    public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType, string? model = "llama3", string? apiKey = null)
+    private const int MaxFileBytes = 1024 * 1024;
+    private static readonly HashSet<string> Models = new(StringComparer.OrdinalIgnoreCase)
+        { "llama3", "qwen2.5-coder", "gemini-3.8-flash", "groq-llama3-70b", "gpt-6-sol", "claude-sonnet-5-5" };
+
+    private void ValidateUpload(string? model, string? apiKey)
     {
+        if (_currentUserService.TenantId == Guid.Empty || _currentUserService.UserId == Guid.Empty ||
+            (_currentUserService.Role != "Admin" && _currentUserService.Role != "Developer"))
+            throw new UnauthorizedAccessException("Kod yükleme yetkiniz yok.");
+        if (!Models.Contains(model ?? "llama3")) throw new ArgumentException("Desteklenmeyen model.");
+        if (model != null && !model.Equals("llama3", StringComparison.OrdinalIgnoreCase) && !model.StartsWith("qwen", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(apiKey))
+            throw new ArgumentException("Bulut modeli için kendi API anahtarınızı girin.");
+    }
+
+    private async Task<(Project Project, List<Document> Documents)> QueueFilesAsync(
+        List<(string Name, byte[] Content)> files, string projectName, string? model, string? apiKey)
+    {
+        model = (model ?? "llama3").Trim().ToLowerInvariant();
+        ValidateUpload(model, apiKey);
+        var project = new Project { Id = Guid.NewGuid(), Name = projectName,
+            TenantId = _currentUserService.TenantId, Language = GetLanguageFromFileName(files[0].Name) };
+        var documents = new List<Document>();
+        var objects = new List<string>();
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
-            // 1. MinIO'ya yükle
-            string savedObjectName = await _minIOService.UploadFileAsync(fileStream, fileName, contentType);
-
-            // 2. Tenant & Project belirleme (Giriş yapılmışsa kullanıcının şirketi, değilse varsayılan)
-            Guid tenantId = _currentUserService.TenantId;
-            Tenant? tenant = null;
-
-            if (tenantId != Guid.Empty)
+            // Serialize uploads with workspace deletion before writing any source objects.
+            if (!await _dbContext.LockTenantAsync(_currentUserService.TenantId))
+                throw new UnauthorizedAccessException("Çalışma alanı bulunamadı.");
+            _dbContext.Projects.Add(project);
+            foreach (var file in files)
             {
-                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == tenantId);
+                using var stream = new MemoryStream(file.Content);
+                var objectKey = await _minIOService.UploadFileAsync(stream, Path.GetFileName(file.Name), "text/plain");
+                objects.Add(objectKey);
+                var doc = new Document { Id = Guid.NewGuid(), ProjectId = project.Id, FileName = file.Name,
+                    StorageUrl = objectKey, Model = model ?? "llama3", UploadedByUserId = _currentUserService.UserId,
+                    RequiresApiKey = model != null && model != "llama3" && !model.StartsWith("qwen", StringComparison.OrdinalIgnoreCase) };
+                documents.Add(doc);
+                if (doc.RequiresApiKey) _tempKeyVaultService.StoreKey(doc.Id, apiKey!);
+                _dbContext.Documents.Add(doc);
+                _dbContext.OutboxMessages.Add(new OutboxMessage { Id = Guid.NewGuid(), DocumentId = doc.Id,
+                    Payload = System.Text.Json.JsonSerializer.Serialize(new {
+                        FileId = doc.Id, FileName = doc.FileName, ObjectKey = objectKey,
+                        TenantId = project.TenantId, UploadedByUserId = doc.UploadedByUserId,
+                        Model = doc.Model, RequiresApiKey = doc.RequiresApiKey }) });
             }
-
-            if (tenant == null)
-            {
-                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
-                if (tenant == null)
-                {
-                    tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
-                    _dbContext.Tenants.Add(tenant);
-                    await _dbContext.SaveChangesAsync();
-                }
-            }
-
-            var project = await _dbContext.Projects.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.TenantId == tenant.Id);
-
-            if (project == null)
-            {
-                project = new Project 
-                { 
-                    Id = Guid.NewGuid(), 
-                    Name = $"{tenant.Name} Repository", 
-                    TenantId = tenant.Id, 
-                    Language = GetLanguageFromFileName(fileName) 
-                };
-                _dbContext.Projects.Add(project);
-                await _dbContext.SaveChangesAsync();
-            }
-
-
-            var document = new Document 
-            { 
-                Id = Guid.NewGuid(), 
-                ProjectId = project.Id, 
-                FileName = fileName, 
-                StorageUrl = savedObjectName,
-                Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model
-            };
-            
-            _dbContext.Documents.Add(document);
             await _dbContext.SaveChangesAsync();
-
-            // 3. Ephemeral In-Memory Token Vault: Yalnızca bulut modeller için bilet üretilir, yerel modellerde (llama3, qwen) anahtar aranmaz
-            var isLocalModel = string.Equals(model, "llama3", StringComparison.OrdinalIgnoreCase) 
-                || (model != null && model.StartsWith("qwen", StringComparison.OrdinalIgnoreCase));
-            string? keyToken = !string.IsNullOrWhiteSpace(apiKey) && !isLocalModel
-                ? _tempKeyVaultService.StoreKey(apiKey)
-                : null;
-
-            // Kafka'ya mesaj gönder
-            var eventMessage = new
-            {
-                FileId = document.Id,
-                FileName = fileName,
-                ObjectKey = savedObjectName,
-                UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
-                TenantId = _currentUserService.TenantId != Guid.Empty ? _currentUserService.TenantId.ToString() : tenant.Id.ToString(),
-                Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
-                KeyToken = keyToken
-            };
-
-            await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            _logger.LogInformation("Dosya MinIO'ya yüklendi ve Kafka kuyruğuna aktarıldı (Ephemeral Token: {HasToken}). DocumentId: {DocumentId}, FileName: {FileName}, Model: {Model}", 
-                keyToken != null, document.Id, fileName, eventMessage.Model);
-
-            // 4. Standart ApiResponse formatında dön
-            var responseData = new { ObjectKey = savedObjectName, DocumentId = document.Id };
-            return ApiResponse<object>.Success(responseData, "Dosya başarıyla yüklendi ve kuyruğa aktarıldı.");
+            await transaction.CommitAsync();
+            return (project, documents);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogError(ex, "Dosya yüklenirken veya kuyruğa atılırken hata oluştu. FileName: {FileName}", fileName);
-            return ApiResponse<object>.Fail(ex.Message, "Dosya yüklenirken veya kuyruğa atılırken bir hata oluştu.");
+            await transaction.RollbackAsync();
+            foreach (var doc in documents) _tempKeyVaultService.RemoveKey(doc.Id);
+            foreach (var key in objects)
+            {
+                try { await _minIOService.DeleteFileAsync(key); }
+                catch (Exception ex) { _logger.LogError(ex, "Upload cleanup failed for {ObjectKey}", key); }
+            }
+            throw;
         }
+    }
+
+    private static async Task<byte[]> ReadSourceAsync(Stream stream)
+    {
+        using var buffer = new MemoryStream();
+        var chunk = new byte[8192];
+        int count;
+        while ((count = await stream.ReadAsync(chunk)) > 0)
+        {
+            if (buffer.Length + count > MaxFileBytes)
+                throw new ArgumentException("Açılmış kaynak dosya 1 MB sınırını aşıyor.");
+            await buffer.WriteAsync(chunk.AsMemory(0, count));
+        }
+        return buffer.ToArray();
+    }
+
+    public async Task<ApiResponse<object>> UploadAndQueueDocumentAsync(Stream fileStream, string fileName, string contentType, string? model = "llama3", string? apiKey = null)
+    {
+        ValidateUpload(model, apiKey);
+        if (!AllowedExtensions.Contains(Path.GetExtension(fileName))) throw new ArgumentException("Desteklenmeyen dosya türü.");
+        if (fileStream.Length == 0 || fileStream.Length > MaxFileBytes) throw new ArgumentException("Dosya boyutu 1 MB altında olmalıdır.");
+        var content = await ReadSourceAsync(fileStream);
+        var result = await QueueFilesAsync(new() { (Path.GetFileName(fileName), content) }, Path.GetFileNameWithoutExtension(fileName), model, apiKey);
+        var doc = result.Documents[0];
+        return ApiResponse<object>.Success(new { ObjectKey = doc.StorageUrl, DocumentId = doc.Id }, "Dosya analiz kuyruğuna alındı.");
     }
 
     public async Task<ApiResponse<ZipUploadResponseDto>> UploadAndQueueZipAsync(Stream zipStream, string archiveName, string? model = "llama3", string? apiKey = null)
     {
-        try
+        ValidateUpload(model, apiKey);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+        var files = new List<(string Name, byte[] Content)>();
+        long total = 0;
+        foreach (var entry in archive.Entries)
         {
-            // 1. Tenant belirleme
-            Guid tenantId = _currentUserService.TenantId;
-            Tenant? tenant = null;
-
-            if (tenantId != Guid.Empty)
-            {
-                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == tenantId);
-            }
-
-            if (tenant == null)
-            {
-                tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
-                if (tenant == null)
-                {
-                    tenant = new Tenant { Id = Guid.NewGuid(), Name = "Varsayılan Şirket" };
-                    _dbContext.Tenants.Add(tenant);
-                    await _dbContext.SaveChangesAsync();
-                }
-            }
-
-            // 2. Zip arşivi stream üzerinden açılır
-            using var zipArchive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: false);
-
-            // 3. Güvenlik ve filtreleme denetimi (Zip-Slip ve gürültü filtreleme)
-            var validEntries = new List<ZipArchiveEntry>();
-            foreach (var entry in zipArchive.Entries)
-            {
-                // Dizinleri atla
-                if (string.IsNullOrEmpty(entry.Name)) continue;
-
-                // Zip-Slip (Path traversal) kontrolü
-                if (entry.FullName.Contains("..") || entry.FullName.StartsWith('/') || entry.FullName.StartsWith('\\'))
-                    continue;
-
-                // Gürültülü dizinleri atla
-                var pathSegments = entry.FullName.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-                if (pathSegments.Any(segment => IgnoredDirectories.Contains(segment)))
-                    continue;
-
-                // Uzantı kontrolü
-                var ext = Path.GetExtension(entry.Name);
-                if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
-                    continue;
-
-                // Boyut kontrolü (Boş veya tekil 10MB üstü dosyalar atlanır)
-                if (entry.Length == 0 || entry.Length > 10 * 1024 * 1024)
-                    continue;
-
-                validEntries.Add(entry);
-                if (validEntries.Count >= 300) break; // Güvenlik üst limiti (Maks 300 dosya)
-            }
-
-            if (validEntries.Count == 0)
-            {
-                return ApiResponse<ZipUploadResponseDto>.Fail(
-                    "Arşiv içerisinde analiz edilebilecek geçerli kaynak kod dosyası bulunamadı. " +
-                    "(Desteklenen formatlar: .cs, .py, .js, .ts, .go, .java vb.)"
-                );
-            }
-
-            // 4. Proje adını arşiv adından türet ve yeni Proje oluştur
-            string projectName = Path.GetFileNameWithoutExtension(archiveName);
-            if (string.IsNullOrWhiteSpace(projectName)) projectName = "Kod Deposu";
-
-            var mostCommonExt = validEntries
-                .Select(e => Path.GetExtension(e.Name))
-                .GroupBy(e => e)
-                .OrderByDescending(g => g.Count())
-                .FirstOrDefault()?.Key ?? ".cs";
-            string primaryLanguage = GetLanguageFromFileName("file" + mostCommonExt);
-
-            var project = new Project
-            {
-                Id = Guid.NewGuid(),
-                Name = projectName,
-                TenantId = tenant.Id,
-                Language = primaryLanguage
-            };
-            _dbContext.Projects.Add(project);
-            await _dbContext.SaveChangesAsync();
-
-            // 5. Dosyaları MinIO'ya yükle, DB'ye Document olarak ekle ve Kafka'ya fırlat
-            var batchId = Guid.NewGuid().ToString();
-            var extractedNames = new List<string>();
-            var documentIds = new List<Guid>();
-
-            // Ephemeral In-Memory Token Vault: Yalnızca bulut modeller için tek bir bilet üretilir (5 dk TTL)
-            var isLocalZipModel = string.Equals(model, "llama3", StringComparison.OrdinalIgnoreCase) 
-                || (model != null && model.StartsWith("qwen", StringComparison.OrdinalIgnoreCase));
-            string? zipKeyToken = !string.IsNullOrWhiteSpace(apiKey) && !isLocalZipModel
-                ? _tempKeyVaultService.StoreKey(apiKey, TimeSpan.FromMinutes(5))
-                : null;
-
-            for (int i = 0; i < validEntries.Count; i++)
-            {
-                var entry = validEntries[i];
-                var normalizedPath = entry.FullName.Replace('\\', '/');
-
-                using var entryStream = entry.Open();
-                using var ms = new MemoryStream();
-                await entryStream.CopyToAsync(ms);
-                ms.Position = 0;
-
-                string savedObjectName = await _minIOService.UploadFileAsync(ms, entry.Name, "text/plain");
-
-                var document = new Document
-                {
-                    Id = Guid.NewGuid(),
-                    ProjectId = project.Id,
-                    FileName = normalizedPath,
-                    StorageUrl = savedObjectName,
-                    Status = DocumentStatus.Pending,
-                    Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model
-                };
-
-                _dbContext.Documents.Add(document);
-                extractedNames.Add(normalizedPath);
-                documentIds.Add(document.Id);
-
-                var eventMessage = new
-                {
-                    FileId = document.Id,
-                    FileName = normalizedPath,
-                    ObjectKey = savedObjectName,
-                    UploadedByUserId = _currentUserService.UserId != Guid.Empty ? _currentUserService.UserId.ToString() : "Misafir / Anonim",
-                    TenantId = tenant.Id.ToString(),
-                    BatchId = batchId,
-                    BatchTotal = validEntries.Count,
-                    BatchIndex = i + 1,
-                    ProjectId = project.Id.ToString(),
-                    Model = string.IsNullOrWhiteSpace(model) ? "llama3" : model,
-                    KeyToken = zipKeyToken
-                };
-
-                await _kafkaProducer.ProduceAsync("file-uploads", eventMessage);
-            }
-
-            await _dbContext.SaveChangesAsync();
-
-            _logger.LogInformation("{Count} adet kod dosyası içeren '{ProjectName}' arşivi MinIO'ya ve Kafka kuyruğuna aktarıldı. BatchId: {BatchId}, ProjectId: {ProjectId}", 
-                validEntries.Count, projectName, batchId, project.Id);
-
-            var responseDto = new ZipUploadResponseDto
-            {
-                ProjectId = project.Id,
-                ProjectName = project.Name,
-                BatchId = batchId,
-                TotalExtractedFiles = validEntries.Count,
-                ExtractedFiles = extractedNames,
-                DocumentIds = documentIds
-            };
-
-            return ApiResponse<ZipUploadResponseDto>.Success(
-                responseDto, 
-                $"{validEntries.Count} adet geçerli kod dosyası başarıyla ayıklandı ve analiz kuyruğuna aktarıldı."
-            );
+            var name = entry.FullName.Replace('\\', '/');
+            if (string.IsNullOrEmpty(entry.Name) || name.Contains("..") || name.StartsWith('/') || name.Contains(':')) continue;
+            if (name.Split('/').Any(IgnoredDirectories.Contains) || !AllowedExtensions.Contains(Path.GetExtension(name))) continue;
+            if (entry.Length == 0) continue;
+            if (entry.Length > MaxFileBytes || files.Count >= 100 || (total += entry.Length) > 20 * 1024 * 1024)
+                throw new ArgumentException("Arşiv en fazla 100 dosya, dosya başına 1 MB ve toplam 20 MB açılmış kod içerebilir.");
+            using var stream = entry.Open();
+            var content = await ReadSourceAsync(stream);
+            if (content.LongLength != entry.Length) throw new ArgumentException("Arşiv dosya boyutu geçersiz.");
+            files.Add((name, content));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ZIP arşivi işlenirken veya kuyruğa aktarılırken hata oluştu. ArchiveName: {ArchiveName}", archiveName);
-            return ApiResponse<ZipUploadResponseDto>.Fail(ex.Message, "Arşiv işlenirken veya kuyruğa aktarılırken bir hata oluştu.");
-        }
+        if (files.Count == 0) throw new ArgumentException("Arşivde desteklenen kaynak kod dosyası bulunamadı.");
+        var result = await QueueFilesAsync(files, Path.GetFileNameWithoutExtension(archiveName), model, apiKey);
+        return ApiResponse<ZipUploadResponseDto>.Success(new ZipUploadResponseDto {
+            ProjectId = result.Project.Id, ProjectName = result.Project.Name, BatchId = result.Project.Id.ToString(),
+            TotalExtractedFiles = files.Count, ExtractedFiles = files.Select(f => f.Name).ToList(),
+            DocumentIds = result.Documents.Select(d => d.Id).ToList()
+        }, "Proje analiz kuyruğuna alındı.");
     }
 
     public async Task<ApiResponse<List<DocumentHistoryDto>>> GetDocumentHistoryAsync()
@@ -322,18 +181,18 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var documents = await query
                 .Include(d => d.Project)
                 .Include(d => d.AnalysisReports)
-                .OrderByDescending(d => d.Id)
+                .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
 
             var historyList = documents.Select(d =>
             {
-                var latestReport = d.AnalysisReports.FirstOrDefault();
+                var latestReport = d.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
                 string severity;
                 if (d.Status == DocumentStatus.Failed)
                 {
@@ -361,11 +220,11 @@ public class DocumentService : IDocumentService
                     Id = d.Id,
                     FileName = d.FileName,
                     Language = GetLanguageFromFileName(d.FileName),
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = d.CreatedAt,
                     Status = d.Status.ToString(),
                     Severity = severity,
                     Score = score,
-                    FindingsCount = d.AnalysisReports.Count,
+                    FindingsCount = d.AnalysisReports.Sum(r => r.FindingsCount),
                     LatestAiSuggestion = latestReport?.AiSuggestion ?? (d.Status == DocumentStatus.Failed ? "Analiz sırasında hata meydana geldi." : (d.Status == DocumentStatus.Cancelled ? "Analiz kullanıcı tarafından iptal edildi." : null)),
                     ProjectId = d.ProjectId,
                     ProjectName = d.Project?.Name,
@@ -377,7 +236,8 @@ public class DocumentService : IDocumentService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<DocumentHistoryDto>>.Fail(ex.Message, "Geçmiş listesi alınırken hata oluştu.");
+            _logger.LogError(ex, "Document operation failed");
+            return ApiResponse<List<DocumentHistoryDto>>.Fail("İşlem tamamlanamadı.", "Geçmiş listesi alınırken hata oluştu.");
         }
     }
 
@@ -392,7 +252,7 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var documents = await query
@@ -403,7 +263,7 @@ public class DocumentService : IDocumentService
 
             var files = documents.Select(d =>
             {
-                var report = d.AnalysisReports.FirstOrDefault();
+                var report = d.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
                 string severity;
                 if (d.Status == DocumentStatus.Failed)
                 {
@@ -441,7 +301,8 @@ public class DocumentService : IDocumentService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<ProjectFileDto>>.Fail(ex.Message, "Proje dosyaları alınırken hata oluştu.");
+            _logger.LogError(ex, "Document operation failed");
+            return ApiResponse<List<ProjectFileDto>>.Fail("İşlem tamamlanamadı.", "Proje dosyaları alınırken hata oluştu.");
         }
     }
 
@@ -456,7 +317,7 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var document = await query
@@ -469,7 +330,7 @@ public class DocumentService : IDocumentService
                 return ApiResponse<DocumentReportDetailDto>.Fail("Doküman bulunamadı.");
             }
 
-            var latestReport = document.AnalysisReports.FirstOrDefault();
+            var latestReport = document.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
             string originalFileContent = await _minIOService.GetFileTextAsync(document.StorageUrl);
             if (string.IsNullOrWhiteSpace(originalFileContent))
             {
@@ -482,24 +343,23 @@ public class DocumentService : IDocumentService
                 FileName = document.FileName,
                 Language = GetLanguageFromFileName(document.FileName).ToLowerInvariant(),
                 Status = document.Status.ToString(),
-                CreatedAt = DateTime.UtcNow,
-                Severity = latestReport?.Severity ?? "Medium",
+                CreatedAt = document.CreatedAt,
+                Severity = latestReport?.Severity ?? "İnceleniyor",
                 Score = CalculateScoreFromSeverity(latestReport?.Severity),
                 AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz çıktısı bekleniyor...",
                 OriginalCode = originalFileContent,
                 ProjectId = document.ProjectId,
                 ProjectName = document.Project?.Name,
                 ModelUsed = latestReport?.ModelUsed ?? FormatModelDisplayName(document.Model),
-                VulnerableLines = latestReport != null && latestReport.LineNumber > 0 
-                    ? new List<int> { latestReport.LineNumber } 
-                    : new List<int>()
+                VulnerableLines = FindingLines(latestReport)
             };
 
             return ApiResponse<DocumentReportDetailDto>.Success(reportDetail, "Rapor detayı başarıyla getirildi.");
         }
         catch (Exception ex)
         {
-            return ApiResponse<DocumentReportDetailDto>.Fail(ex.Message, "Rapor detayı alınırken hata oluştu.");
+            _logger.LogError(ex, "Document operation failed");
+            return ApiResponse<DocumentReportDetailDto>.Fail("İşlem tamamlanamadı.", "Rapor detayı alınırken hata oluştu.");
         }
     }
 
@@ -514,7 +374,7 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var documents = await query
@@ -528,30 +388,30 @@ public class DocumentService : IDocumentService
                 CriticalCount = documents.Count(d => d.AnalysisReports.Any(r => r.Severity.Contains("Kritik", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Critical", StringComparison.OrdinalIgnoreCase))),
                 HighCount = documents.Count(d => d.AnalysisReports.Any(r => r.Severity.Contains("Yüksek", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("High", StringComparison.OrdinalIgnoreCase))),
                 MediumCount = documents.Count(d => d.AnalysisReports.Any(r => r.Severity.Contains("Orta", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Medium", StringComparison.OrdinalIgnoreCase))),
-                LowCount = documents.Count(d => d.AnalysisReports.Any(r => r.Severity.Contains("Düşük", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Low", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Güvenli", StringComparison.OrdinalIgnoreCase))),
+                LowCount = documents.Count(d => d.AnalysisReports.Any(r => r.Severity.Contains("Düşük", StringComparison.OrdinalIgnoreCase) || r.Severity.Contains("Low", StringComparison.OrdinalIgnoreCase) || (r.Severity.Contains("Güvenli", StringComparison.OrdinalIgnoreCase) || r.Severity == "Temiz"))),
             };
 
-            var scores = documents.Select(d =>
+            var scores = documents.Where(d => d.Status == DocumentStatus.Completed && d.AnalysisReports.Any()).Select(d =>
             {
-                var r = d.AnalysisReports.FirstOrDefault();
+                var r = d.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
                 return CalculateScoreFromSeverity(r?.Severity);
             }).ToList();
 
-            stats.AverageScore = scores.Any() ? Math.Round(scores.Average(), 1) : 85.0;
+            stats.AverageScore = scores.Any() ? Math.Round(scores.Average(), 1) : null;
 
-            stats.RecentDocuments = documents.Take(5).Select(d =>
+            stats.RecentDocuments = documents.OrderByDescending(d => d.CreatedAt).Take(5).Select(d =>
             {
-                var r = d.AnalysisReports.FirstOrDefault();
+                var r = d.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
                 return new DocumentHistoryDto
                 {
                     Id = d.Id,
                     FileName = d.FileName,
                     Language = GetLanguageFromFileName(d.FileName),
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = d.CreatedAt,
                     Status = d.Status.ToString(),
                     Severity = r?.Severity ?? "İnceleniyor",
                     Score = CalculateScoreFromSeverity(r?.Severity),
-                    FindingsCount = d.AnalysisReports.Count,
+                    FindingsCount = d.AnalysisReports.Sum(r => r.FindingsCount),
                     LatestAiSuggestion = r?.AiSuggestion
                 };
             }).ToList();
@@ -560,7 +420,8 @@ public class DocumentService : IDocumentService
         }
         catch (Exception ex)
         {
-            return ApiResponse<DashboardStatsDto>.Fail(ex.Message, "İstatistikler hesaplanırken hata oluştu.");
+            _logger.LogError(ex, "Document operation failed");
+            return ApiResponse<DashboardStatsDto>.Fail("İşlem tamamlanamadı.", "İstatistikler hesaplanırken hata oluştu.");
         }
     }
 
@@ -575,7 +436,7 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var document = await query
@@ -589,7 +450,7 @@ public class DocumentService : IDocumentService
                 return ApiResponse<DocumentExportReportDto>.Fail("Raporlanacak doküman bulunamadı veya erişim yetkiniz yok.");
             }
 
-            var latestReport = document.AnalysisReports.FirstOrDefault();
+            var latestReport = document.AnalysisReports.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
             string originalFileContent = await _minIOService.GetFileTextAsync(document.StorageUrl);
             if (string.IsNullOrWhiteSpace(originalFileContent))
             {
@@ -614,7 +475,7 @@ public class DocumentService : IDocumentService
                     FileName = document.FileName,
                     Language = GetLanguageFromFileName(document.FileName),
                     Status = document.Status.ToString(),
-                    UploadedAt = DateTime.UtcNow,
+                    UploadedAt = document.CreatedAt,
                     OriginalCode = originalFileContent
                 },
                 Analysis = new AnalysisFindingExportDto
@@ -623,9 +484,7 @@ public class DocumentService : IDocumentService
                     Score = CalculateScoreFromSeverity(latestReport?.Severity),
                     ModelUsed = latestReport?.ModelUsed ?? FormatModelDisplayName(document.Model),
                     LineNumber = latestReport?.LineNumber ?? 0,
-                    VulnerableLines = latestReport != null && latestReport.LineNumber > 0
-                        ? new List<int> { latestReport.LineNumber }
-                        : new List<int>(),
+                    VulnerableLines = FindingLines(latestReport),
                     AiSuggestion = latestReport?.AiSuggestion ?? "Yapay zeka analiz raporu bulunamadı."
                 }
             };
@@ -635,8 +494,15 @@ public class DocumentService : IDocumentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Doküman JSON raporu dışa aktarılırken hata oluştu. DocumentId: {DocumentId}", documentId);
-            return ApiResponse<DocumentExportReportDto>.Fail(ex.Message, "Rapor dışa aktarılırken hata oluştu.");
+            return ApiResponse<DocumentExportReportDto>.Fail("İşlem tamamlanamadı.", "Rapor dışa aktarılırken hata oluştu.");
         }
+    }
+
+    private static List<int> FindingLines(AnalysisReport? report)
+    {
+        if (report == null) return new();
+        return (System.Text.Json.JsonSerializer.Deserialize<List<CodeMind.Domain.Events.SecurityFinding>>(report.FindingsJson) ?? new())
+            .Select(f => f.LineNumber).Where(n => n > 0).Distinct().Order().ToList();
     }
 
     private static string GetLanguageFromFileName(string fileName)
@@ -660,6 +526,8 @@ public class DocumentService : IDocumentService
     {
         try
         {
+            if (_currentUserService.Role != "Admin" && _currentUserService.Role != "Developer")
+                throw new UnauthorizedAccessException("Analiz iptal yetkiniz yok.");
             var query = _dbContext.Documents.AsQueryable();
             if (_currentUserService.TenantId != Guid.Empty)
             {
@@ -667,7 +535,7 @@ public class DocumentService : IDocumentService
             }
             else
             {
-                query = query.IgnoreQueryFilters();
+                throw new UnauthorizedAccessException("Geçerli şirket oturumu gerekli.");
             }
 
             var doc = await query.FirstOrDefaultAsync(d => d.Id == documentId);
@@ -680,6 +548,7 @@ public class DocumentService : IDocumentService
             {
                 doc.Status = DocumentStatus.Cancelled;
                 await _dbContext.SaveChangesAsync();
+                _tempKeyVaultService.RemoveKey(doc.Id);
                 _logger.LogInformation("Doküman analizi iptal edildi. DocumentId: {DocumentId}", documentId);
                 return ApiResponse<bool>.Success(true, "Doküman analizi başarıyla iptal edildi.");
             }
@@ -689,13 +558,15 @@ public class DocumentService : IDocumentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Doküman iptal edilirken hata oluştu. DocumentId: {DocumentId}", documentId);
-            return ApiResponse<bool>.Fail(ex.Message, "İptal işlemi sırasında hata meydana geldi.");
+            return ApiResponse<bool>.Fail("İşlem tamamlanamadı.", "İptal işlemi sırasında hata meydana geldi.");
         }
     }
 
     private static int CalculateScoreFromSeverity(string? severity)
     {
-        if (string.IsNullOrEmpty(severity)) return 85;
+        if (string.IsNullOrEmpty(severity)) return 0;
+        if (severity == "Temiz") return 100;
+        if (severity == "İnceleniyor") return 0;
         if (severity.Contains("Başarısız", StringComparison.OrdinalIgnoreCase) || 
             severity.Contains("Failed", StringComparison.OrdinalIgnoreCase) ||
             severity.Contains("İptal", StringComparison.OrdinalIgnoreCase) ||

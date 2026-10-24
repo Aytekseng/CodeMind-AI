@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
 
 # 1. Bağımlılıkları Yükle
 FROM base AS deps
@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 # 2. Next.js Uygulamasını Derle
 FROM base AS builder

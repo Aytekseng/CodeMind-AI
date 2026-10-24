@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Lock, Mail, Eye, EyeOff, Shield, Building2, User, ArrowRight, Loader2, Sparkles, CheckCircle2 } from "lucide-react"
+import { Lock, Mail, Building2, User, ArrowRight, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"
@@ -42,8 +42,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 6) {
-      toast.error("Şifreniz en az 6 karakter uzunluğunda olmalıdır.")
+    if (password.length < 12) {
+      toast.error("Şifreniz en az 12 karakter uzunluğunda olmalıdır.")
       return
     }
 

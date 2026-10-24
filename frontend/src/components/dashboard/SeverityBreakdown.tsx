@@ -11,12 +11,7 @@ interface SeverityItem {
   color: string
 }
 
-const defaultData: SeverityItem[] = [
-  { name: "Kritik", count: 1, color: "#f43f5e" },
-  { name: "Yüksek", count: 3, color: "#f97316" },
-  { name: "Orta", count: 5, color: "#eab308" },
-  { name: "Düşük / Bilgi", count: 8, color: "#10b981" },
-]
+const defaultData: SeverityItem[] = []
 
 export function SeverityBreakdown({ data = defaultData }: { data?: SeverityItem[] }) {
   const total = data.reduce((acc, curr) => acc + curr.count, 0)
@@ -30,11 +25,11 @@ export function SeverityBreakdown({ data = defaultData }: { data?: SeverityItem[
             <CardTitle className="text-base">Zafiyet Seviyesi Dağılımı</CardTitle>
           </div>
           <span className="font-mono text-xs text-zinc-400">
-            Toplam: <strong className="text-white">{total}</strong> Bulgu
+            Toplam: <strong className="text-white">{total}</strong> Dosya
           </span>
         </div>
         <CardDescription className="text-xs">
-          Tespit edilen güvenlik açıklarının ciddiyet dereceleri
+          Analiz edilen dosyaların en yüksek zafiyet düzeyleri
         </CardDescription>
       </CardHeader>
 

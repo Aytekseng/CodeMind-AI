@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Lock, Mail, Eye, EyeOff, Shield, Sparkles, ArrowRight, Loader2, CheckCircle2 } from "lucide-react"
+import { Lock, Mail, Eye, EyeOff, Shield, ArrowRight, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"

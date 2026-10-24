@@ -1,4 +1,5 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -18,6 +19,8 @@ export function DangerZoneCard() {
   const [password, setPassword] = React.useState("")
   const [confirmName, setConfirmName] = React.useState("")
   const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const [isExporting, setIsExporting] = React.useState(false)
 
   // Sadece Admin kullanıcılar görebilir
   if (user?.role !== "Admin") {
@@ -49,14 +52,15 @@ export function DangerZoneCard() {
       } else {
         toast.error(res.message || "Şirket silinirken hata oluştu.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "Sunucuyla iletişim kurulurken bir hata oluştu.")
     } finally {
       setIsDeleting(false)
     }
   }
 
-  const [isExporting, setIsExporting] = React.useState(false)
+
 
   const handleExportDataClick = async () => {
     if (isExporting) return
@@ -69,7 +73,8 @@ export function DangerZoneCard() {
       toast.success("Kurumsal PDF raporu başarıyla indirildi!", {
         description: `${downloadedFile} bilgisayarınıza kaydedildi.`
       })
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "PDF raporu oluşturulurken bir hata oluştu.")
     } finally {
       setIsExporting(false)

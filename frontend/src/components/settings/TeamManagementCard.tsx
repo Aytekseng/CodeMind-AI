@@ -1,22 +1,8 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
-import {
-  Users,
-  UserPlus,
-  Shield,
-  Code,
-  Eye,
-  Trash2,
-  Copy,
-  Check,
-  RefreshCw,
-  Loader2,
-  AlertCircle,
-  Sparkles,
-  Lock,
-  ChevronDown
-} from "lucide-react"
+import { Users, UserPlus, Shield, Code, Eye, Trash2, Copy, Check, RefreshCw, Loader2, Lock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -45,14 +31,14 @@ export function TeamManagementCard() {
 
   const fetchMembers = React.useCallback(async () => {
     try {
-      setIsLoading(true)
       const res = await teamService.getMembers()
       if (res.isSuccess && res.data) {
         setMembers(res.data)
       } else {
         toast.error(res.message || "Takım üyeleri yüklenemedi.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "Takım üyeleri alınırken hata oluştu.")
     } finally {
       setIsLoading(false)
@@ -61,7 +47,8 @@ export function TeamManagementCard() {
 
   React.useEffect(() => {
     if (user?.role === "Admin") {
-      fetchMembers()
+      const timer = setTimeout(() => { void fetchMembers() }, 0)
+      return () => clearTimeout(timer)
     }
   }, [user, fetchMembers])
 
@@ -74,8 +61,8 @@ export function TeamManagementCard() {
   const generateRandomPassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*"
     let pass = ""
-    for (let i = 0; i < 10; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    for (let i = 0; i < 16; i++) {
+      pass += chars.charAt(crypto.getRandomValues(new Uint32Array(1))[0] % chars.length)
     }
     setTemporaryPassword(pass)
   }
@@ -112,8 +99,8 @@ export function TeamManagementCard() {
       return
     }
 
-    if (!temporaryPassword || temporaryPassword.length < 6) {
-      toast.error("Geçici şifre en az 6 karakter olmalıdır.")
+    if (!temporaryPassword || temporaryPassword.length < 12) {
+      toast.error("Geçici şifre en az 12 karakter olmalıdır.")
       return
     }
 
@@ -135,7 +122,8 @@ export function TeamManagementCard() {
       } else {
         toast.error(res.message || "Üye eklenirken hata oluştu.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.response?.data?.message || err?.message || "Sunucu hatası.")
     } finally {
       setIsSubmitting(false)
@@ -154,7 +142,8 @@ export function TeamManagementCard() {
       } else {
         toast.error(res.message || "Rol güncellenemedi.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.response?.data?.message || err?.message || "Rol güncellenirken hata oluştu.")
     } finally {
       setUpdatingMemberId(null)
@@ -181,7 +170,8 @@ export function TeamManagementCard() {
       } else {
         toast.error(res.message || "Kullanıcı silinemedi.")
       }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.response?.data?.message || err?.message || "Kullanıcı silinirken hata oluştu.")
     } finally {
       setRemovingMemberId(null)

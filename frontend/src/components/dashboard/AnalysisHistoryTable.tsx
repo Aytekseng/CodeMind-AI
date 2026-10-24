@@ -1,4 +1,6 @@
 "use client"
+import { useRouter } from "next/navigation"
+import { normalizeError } from "@/lib/errors"
 
 import * as React from "react"
 import {
@@ -28,6 +30,7 @@ interface AnalysisHistoryTableProps {
 }
 
 export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: AnalysisHistoryTableProps) {
+  const router = useRouter()
   const [records, setRecords] = React.useState<DocumentHistoryItem[]>(propRecords || [])
   const [loading, setLoading] = React.useState<boolean>(!propRecords)
   const [searchTerm, setSearchTerm] = React.useState<string>("")
@@ -45,7 +48,8 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
       toast.success("PDF Raporu indirildi!", {
         description: `${fileName} başarıyla kaydedildi.`
       })
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       toast.error(err?.message || "PDF indirilirken hata oluştu.")
     } finally {
       setExportingId(null)
@@ -53,7 +57,6 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
   }
 
   const loadData = React.useCallback(async () => {
-    setLoading(true)
     try {
       const response = await getHistoryAsync()
       if (response && response.isSuccess && Array.isArray(response.data)) {
@@ -73,13 +76,12 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
 
   React.useEffect(() => {
     if (!propRecords) {
-      loadData()
-    } else {
-      setRecords(Array.isArray(propRecords) ? propRecords : [])
+      const timer = setTimeout(() => { void loadData() }, 0)
+      return () => clearTimeout(timer)
     }
   }, [propRecords, loadData])
 
-  const safeRecords = Array.isArray(records) ? records : []
+  const safeRecords = propRecords ?? records
 
   const filteredRecords = safeRecords.filter((item) => {
     if (!item) return false
@@ -163,7 +165,8 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
     return "🦙"
   }
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Tarih bilinmiyor"
     if (!dateStr) return "-"
     try {
       const d = new Date(dateStr)
@@ -251,7 +254,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
             <Button
               variant="cyber"
               size="sm"
-              onClick={() => (window.location.href = "/")}
+              onClick={() => router.push("/")}
               className="mt-2 text-xs"
             >
               Yeni Dosya Yükle
@@ -289,14 +292,14 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                   <td className="px-5 py-3.5">
                     <span
                       className={`font-bold ${
-                        (item.score ?? 85) >= 80
+                        (item.score ?? 0) >= 80
                           ? "text-emerald-400"
-                          : (item.score ?? 85) >= 60
+                          : (item.score ?? 0) >= 60
                           ? "text-amber-400"
                           : "text-rose-400"
                       }`}
                     >
-                      {item.score ?? 85}/100
+                      {item.status === "Completed" ? `${item.score}/100` : "—"}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
@@ -324,7 +327,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                           if (onSelectRecord) {
                             onSelectRecord(item)
                           } else {
-                            window.location.href = `/dashboard?docId=${item.id}`
+                            router.push(`/dashboard?docId=${item.id}`)
                           }
                         }}
                         className="h-7 text-[11px] gap-1 px-2.5 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
@@ -363,7 +366,7 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
               <div className="flex items-center justify-between text-zinc-400 border-b border-white/5 pb-2">
                 <span>Tarih: {formatDate(activeModalItem.createdAt)}</span>
                 <span>Dil: {activeModalItem.language}</span>
-                <span className="text-cyan-400 font-bold">Skor: {activeModalItem.score ?? 85}/100</span>
+                <span className="text-cyan-400 font-bold">Skor: {activeModalItem.status === "Completed" ? `${activeModalItem.score}/100` : "—"}</span>
               </div>
 
               <div>
@@ -399,11 +402,11 @@ export function AnalysisHistoryTable({ records: propRecords, onSelectRecord }: A
                 variant="cyber"
                 size="sm"
                 onClick={() => {
-                  window.location.href = `/dashboard?docId=${activeModalItem.id}`
+                  router.push(`/dashboard?docId=${activeModalItem.id}`)
                 }}
                 className="text-xs gap-1.5"
               >
-                <span>Dashboard'da Detaylı Aç</span>
+                <span>Dashboard’da Detaylı Aç</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </Button>
             </div>

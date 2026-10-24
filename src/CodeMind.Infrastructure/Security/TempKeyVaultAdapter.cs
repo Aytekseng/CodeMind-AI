@@ -1,70 +1,11 @@
-using System;
 using CodeMind.Domain.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
-
 namespace CodeMind.Infrastructure.Security;
-
-public class TempKeyVaultAdapter : ITempKeyVaultService
+// Job-bound keys are memory-only. Restart requires resubmission, never another billing account.
+public sealed class TempKeyVaultAdapter(IMemoryCache cache) : ITempKeyVaultService
 {
-    private readonly IMemoryCache _cache;
-    private readonly ILogger<TempKeyVaultAdapter> _logger;
-    private static readonly TimeSpan DefaultTtl = TimeSpan.FromSeconds(90);
-
-    public TempKeyVaultAdapter(IMemoryCache cache, ILogger<TempKeyVaultAdapter> logger)
-    {
-        _cache = cache;
-        _logger = logger;
-    }
-
-    public string StoreKey(string apiKey, TimeSpan? ttl = null)
-    {
-        if (string.IsNullOrWhiteSpace(apiKey))
-            return string.Empty;
-
-        var token = Guid.NewGuid().ToString("N");
-        var expiration = ttl ?? DefaultTtl;
-
-        var entryOptions = new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = expiration,
-            Priority = CacheItemPriority.High
-        };
-
-        _cache.Set(token, apiKey.Trim(), entryOptions);
-        _logger.LogInformation("Ephemeral API key stored with token {KeyToken}, TTL: {Ttl}s (Never written to disk or broker)", token, expiration.TotalSeconds);
-
-        return token;
-    }
-
-    public string? GetKey(string keyToken)
-    {
-        if (string.IsNullOrWhiteSpace(keyToken))
-            return null;
-
-        if (_cache.TryGetValue(keyToken, out string? apiKey))
-        {
-            return apiKey;
-        }
-
-        _logger.LogWarning("Ephemeral API key token {KeyToken} was either expired or not found", keyToken);
-        return null;
-    }
-
-    public string? ConsumeKey(string keyToken)
-    {
-        if (string.IsNullOrWhiteSpace(keyToken))
-            return null;
-
-        if (_cache.TryGetValue(keyToken, out string? apiKey))
-        {
-            // Immediately purge from memory once retrieved (one-time use)
-            _cache.Remove(keyToken);
-            _logger.LogInformation("Ephemeral API key token {KeyToken} consumed and purged from memory", keyToken);
-            return apiKey;
-        }
-
-        _logger.LogWarning("Ephemeral API key token {KeyToken} was either expired or already consumed", keyToken);
-        return null;
-    }
+    public void StoreKey(Guid documentId, string apiKey) =>
+        cache.Set($"job-key:{documentId}", apiKey.Trim(), TimeSpan.FromHours(24));
+    public string? GetKey(Guid documentId) => cache.Get<string>($"job-key:{documentId}");
+    public void RemoveKey(Guid documentId) => cache.Remove($"job-key:{documentId}");
 }

@@ -25,7 +25,7 @@ public class DocumentInfoExportDto
     public string FileName { get; set; } = string.Empty;
     public string Language { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public DateTime UploadedAt { get; set; }
+    public DateTime? UploadedAt { get; set; }
     public string OriginalCode { get; set; } = string.Empty;
 }
 

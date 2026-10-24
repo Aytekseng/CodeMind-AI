@@ -1,5 +1,7 @@
 "use client"
+import { normalizeError } from "@/lib/errors"
 
+import { clearApiKeys } from "@/lib/apiKeys"
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { authService, AuthResponseData, LoginPayload, RegisterPayload, UpdateProfilePayload } from "@/services/authService"
 
@@ -24,32 +26,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state from local storage on mount
   useEffect(() => {
+    let active = true
+    clearApiKeys()
     const storedToken = authService.getStoredToken()
     const storedUser = authService.getStoredUser()
 
     if (storedToken && storedUser) {
-      setToken(storedToken)
-      setUser(storedUser)
+
 
       // Optionally refresh user profile from backend
       authService.getCurrentUser()
         .then((res) => {
-          if (res.isSuccess && res.data) {
+          if (active && authService.getStoredToken() === storedToken && res.isSuccess && res.data) {
             const updatedUser = { ...res.data, token: storedToken }
+            setToken(storedToken)
             setUser(updatedUser)
             authService.setSession(storedToken, updatedUser)
           }
         })
         .catch(() => {
-          // Token expired or invalid
-          console.warn("[Auth] Oturum süresi dolmuş olabilir.")
+          // Do not clear a newer session after an old request fails.
+          if (!active || authService.getStoredToken() !== storedToken) return
+          authService.clearSession()
+          setToken(null)
+          setUser(null)
         })
         .finally(() => {
-          setIsLoading(false)
+          if (active) setIsLoading(false)
         })
     } else {
-      setIsLoading(false)
+      queueMicrotask(() => setIsLoading(false))
     }
+    const expire = () => { authService.clearSession(); setToken(null); setUser(null) }
+    window.addEventListener("codemind-session-expired", expire)
+    return () => { active = false; window.removeEventListener("codemind-session-expired", expire) }
   }, [])
 
   const login = useCallback(async (payload: LoginPayload) => {
@@ -63,7 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, message: res.message || "Giriş başarılı!" }
       }
       return { success: false, message: res.message || "Giriş başarısız oldu." }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       const errMsg = err.response?.data?.message || err.message || "Giriş yapılırken sunucu hatası oluştu."
       return { success: false, message: errMsg }
     } finally {
@@ -82,7 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, message: res.message || "Kayıt başarıyla tamamlandı!" }
       }
       return { success: false, message: res.message || "Kayıt başarısız oldu." }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       const errMsg = err.response?.data?.message || err.message || "Kayıt sırasında sunucu hatası oluştu."
       return { success: false, message: errMsg }
     } finally {
@@ -104,7 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, message: res.message || "Profil başarıyla güncellendi!" }
       }
       return { success: false, message: res.message || "Profil güncellenemedi." }
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = normalizeError(caught)
       const errMsg = err.response?.data?.message || err.message || "Güncelleme sırasında hata oluştu."
       return { success: false, message: errMsg }
     } finally {
@@ -121,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const res = await authService.getCurrentUser()
-      if (res.isSuccess && res.data && token) {
+      if (res.isSuccess && res.data && token && authService.getStoredToken() === token) {
         const updated = { ...res.data, token }
         setUser(updated)
         authService.setSession(token, updated)

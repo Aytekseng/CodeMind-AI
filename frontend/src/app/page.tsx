@@ -10,7 +10,7 @@ import { DragDropArea } from "@/components/upload/DragDropArea"
 import { useAuth } from "@/hooks/useAuth"
 
 export default function Home() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   const scrollToUpload = () => {
     const el = document.getElementById("upload-section")
@@ -33,7 +33,7 @@ export default function Home() {
                 Misafir Modundasınız (Kısıtlı Erişim)
               </p>
               <p className="text-[11px] text-zinc-300 leading-snug">
-                Kod analizi başlatmak, şirket arşivi oluşturmak ve güvenlik dashboard'una erişmek için oturum açmalısınız.
+                Kod analizi başlatmak, şirket arşivi oluşturmak ve güvenlik dashboard’una erişmek için oturum açmalısınız.
               </p>
             </div>
           </div>

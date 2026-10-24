@@ -1,7 +1,9 @@
 "use client"
 
+import { getApiKey, setApiKey as storeApiKey } from "@/lib/apiKeys"
+
 import * as React from "react"
-import { Key, Check, Eye, EyeOff, ShieldCheck, Sparkles, Zap, Lock, Cpu, Globe } from "lucide-react"
+import { Key, Check, Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react"
 
 export interface ModelOption {
   id: string
@@ -38,7 +40,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     badge: "Kodlama Lideri",
     badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/20",
     icon: "💻",
-    description: "Kod analizi ve siber güvenlik zafiyetlerinde dünyanın en iyi açık kaynak kodlama modeli.",
+    description: "Kod analizi ve siber güvenlik zafiyetlerinde için cihazınızda çalışan açık kaynak kodlama modeli.",
     requiresApiKey: false,
   },
 
@@ -51,7 +53,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     badge: "BYOK (Google AI Key)",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     icon: "⚡",
-    description: "Google AI Studio veya Google Cloud API anahtarınızla gelişmiş mantıksal denetim ve ultra hızlı analiz.",
+    description: "Google AI Studio API anahtarınızla analiz. Kullanılan model sunucu ayarından seçilir.",
     requiresApiKey: true,
     keyStorageKey: "codemind_gemini_api_key",
     keyPlaceholder: "AIzaSy...",
@@ -61,10 +63,10 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     name: "Groq Llama 3.3 70B",
     category: "byok",
     provider: "Groq LPU",
-    badge: "Groq Cloud (Ücretsiz Key)",
+    badge: "BYOK (Groq API Key)",
     badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     icon: "🚀",
-    description: "Groq Console'dan alabileceğiniz ücretsiz API anahtarıyla saniyede 300+ token hızında anında denetim.",
+    description: "Groq API anahtarınızla bulut üzerinden analiz. Kullanım sınırları hesabınıza bağlıdır.",
     requiresApiKey: true,
     keyStorageKey: "codemind_groq_api_key",
     keyPlaceholder: "gsk_...",
@@ -77,7 +79,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     badge: "BYOK (Kendi Keyiniz)",
     badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
     icon: "🧠",
-    description: "OpenAI'ın en güncel kod analizi ve otonom denetim odaklı amiral gemisi modeli.",
+    description: "OpenAI API anahtarınızla kaynak kod analizi. Kullanılan model sunucu ayarından seçilir.",
     requiresApiKey: true,
     keyStorageKey: "codemind_openai_api_key",
     keyPlaceholder: "sk-proj-...",
@@ -90,12 +92,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     badge: "BYOK (Kendi Keyiniz)",
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
     icon: "🛡️",
-    description: "Kod analizi, siber zafiyet tespiti ve mantıksal doğrulukta Anthropic'in en yeni nesil amiral gemisi modeli.",
+    description: "Anthropic API anahtarınızla kaynak kod analizi. Kullanılan model sunucu ayarından seçilir.",
     requiresApiKey: true,
     keyStorageKey: "codemind_anthropic_api_key",
     keyPlaceholder: "sk-ant-api03-...",
   },
 ]
+
+export function normalizeModelId(value: string): string {
+  const aliases: Record<string, string> = { "gemini-1.5-flash": "gemini-3.8-flash", "gpt-4o": "gpt-6-sol", "claude-3-5-sonnet": "claude-sonnet-5-5" }
+  const id = aliases[value] || value
+  return AVAILABLE_MODELS.some(model => model.id === id) ? id : "llama3"
+}
 
 interface ModelSelectorProps {
   selectedModel: string
@@ -112,17 +120,13 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [activeTab, setActiveTab] = React.useState<"all" | "free" | "byok">("all")
   const [showKey, setShowKey] = React.useState<boolean>(false)
-  const normalizedSelectedModel = 
-    selectedModel === "gemini-1.5-flash" ? "gemini-3.8-flash" :
-    selectedModel === "gpt-4o" ? "gpt-6-sol" :
-    selectedModel === "claude-3-5-sonnet" ? "claude-sonnet-5-5" :
-    selectedModel
+  const normalizedSelectedModel = normalizeModelId(selectedModel)
   const currentModel = AVAILABLE_MODELS.find((m) => m.id === normalizedSelectedModel) || AVAILABLE_MODELS[0]
 
-  // Automatically load saved API key from localStorage when model changes
+  // Automatically load saved API key from memory when model changes
   React.useEffect(() => {
     if (currentModel.requiresApiKey && currentModel.keyStorageKey) {
-      const savedKey = localStorage.getItem(currentModel.keyStorageKey) || ""
+      const savedKey = getApiKey(currentModel.keyStorageKey) || ""
       onApiKeyChange(savedKey)
     } else {
       onApiKeyChange("")
@@ -134,15 +138,15 @@ export function ModelSelector({
     onSelectModel(modelId)
   }
 
-  // Save key to localStorage on edit
+  // Save key to memory on edit
   const handleKeyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     onApiKeyChange(val)
     if (currentModel.keyStorageKey) {
       if (val) {
-        localStorage.setItem(currentModel.keyStorageKey, val)
+        storeApiKey(currentModel.keyStorageKey, val)
       } else {
-        localStorage.removeItem(currentModel.keyStorageKey)
+        storeApiKey(currentModel.keyStorageKey, "")
       }
     }
   }

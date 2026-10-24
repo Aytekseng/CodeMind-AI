@@ -3,6 +3,7 @@ namespace CodeMind.Domain.Entities;
 // Sisteme giriş yapan ve projeleri yöneten bireysel kullanıcıyı temsil eder.
 public class User : BaseEntity
 {
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
     // Kullanıcının bağlı olduğu Şirketin (Tenant) eşsiz kimliği
     public Guid TenantId { get; set; }
     

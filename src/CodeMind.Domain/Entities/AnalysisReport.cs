@@ -5,6 +5,9 @@ namespace CodeMind.Domain.Entities;
 // Yapay zeka servisinden (AI Worker) dönen analiz ve güvenlik denetimi sonuçlarını temsil eder.
 public class AnalysisReport : BaseEntity
 {
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string FindingsJson { get; set; } = "[]";
+    public int FindingsCount { get; set; }
     // Analiz sonucunun ait olduğu Dokümanın eşsiz kimliği
     public Guid DocumentId { get; set; }
     

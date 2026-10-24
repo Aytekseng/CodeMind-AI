@@ -5,6 +5,10 @@ namespace CodeMind.Domain.Entities;
 // Yapay zeka tarafından analiz edilmek üzere projeye yüklenen her bir kod veya metin dosyasını temsil eder.
 public class Document : BaseEntity
 {
+    public Guid? UploadedByUserId { get; set; }
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool RequiresApiKey { get; set; }
+    public string? ErrorMessage { get; set; }
     // Dokümanın bağlı olduğu Projenin eşsiz kimliği
     public Guid ProjectId { get; set; }
     

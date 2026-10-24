@@ -22,7 +22,9 @@ public class KafkaMessageProducer : IMessageProducer
     {
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _bootstrapServers,
+            EnableIdempotence = true,
+            MessageTimeoutMs = 15000
         };
 
         using var producer = new ProducerBuilder<Null, string>(config).Build();

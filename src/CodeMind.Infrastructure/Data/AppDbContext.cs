@@ -28,7 +28,25 @@ public class AppDbContext : DbContext, IAppDbContext
     
     // Veritabanındaki 'AnalysisReports' (AI Sonuçları) tablosuna karşılık gelen set
     public DbSet<AnalysisReport> AnalysisReports { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
     
+
+    public async Task<bool> LockTenantAsync(Guid tenantId)
+    {
+        if (Database.CurrentTransaction == null)
+            throw new InvalidOperationException("Tenant mutations require an active transaction.");
+        var rows = await Tenants.FromSqlInterpolated($"SELECT * FROM \"Tenants\" WHERE \"Id\" = {tenantId} FOR UPDATE")
+            .IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        return rows.Count == 1;
+    }
+
+    public async Task DeleteLegacyEmbeddingsAsync(Guid[] documentIds)
+    {
+        var exists = await Database.SqlQuery<bool>($"SELECT to_regclass('public.langchain_pg_embedding') IS NOT NULL AS \"Value\"").SingleAsync();
+        if (!exists) return;
+        var ids = documentIds.Select(id => id.ToString()).ToArray();
+        await Database.ExecuteSqlInterpolatedAsync($"DELETE FROM langchain_pg_embedding WHERE cmetadata->>'file_id' = ANY ({ids})");
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,11 +62,18 @@ public class AppDbContext : DbContext, IAppDbContext
             .Property(d => d.Status)
             .HasConversion<string>();
 
-        // Multi-tenancy (Çok Kiracılılık) için Row-Level Security (RLS) - Global Sorgu Filtresi
-        // Auth token'ı yoksa (TenantId == Guid.Empty) filtre devreye girmez; token varsa ilgili şirketi filtreler.
-        modelBuilder.Entity<User>().HasQueryFilter(u => _currentUserService.TenantId == Guid.Empty || u.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Project>().HasQueryFilter(p => _currentUserService.TenantId == Guid.Empty || p.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Document>().HasQueryFilter(d => _currentUserService.TenantId == Guid.Empty || d.Project.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<AnalysisReport>().HasQueryFilter(a => _currentUserService.TenantId == Guid.Empty || a.Document.Project.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Tenant>().HasQueryFilter(t => t.Id == _currentUserService.TenantId);
+        modelBuilder.Entity<User>().HasQueryFilter(u => u.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+        modelBuilder.Entity<Project>().HasQueryFilter(p => p.TenantId == _currentUserService.TenantId);
+        modelBuilder.Entity<Document>().HasQueryFilter(d => d.Project.TenantId == _currentUserService.TenantId &&
+            (_currentUserService.Role == "Admin" || _currentUserService.Role == "Auditor" ||
+             d.UploadedByUserId == _currentUserService.UserId));
+        modelBuilder.Entity<AnalysisReport>().HasQueryFilter(a => a.Document.Project.TenantId == _currentUserService.TenantId &&
+            (_currentUserService.Role == "Admin" || _currentUserService.Role == "Auditor" ||
+             a.Document.UploadedByUserId == _currentUserService.UserId));
+        modelBuilder.Entity<Document>().Property(d => d.Status).IsConcurrencyToken();
+        modelBuilder.Entity<OutboxMessage>().HasOne(o => o.Document).WithMany().HasForeignKey(o => o.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<OutboxMessage>().HasQueryFilter(o => o.Document.Project.TenantId == _currentUserService.TenantId);
     }
 }

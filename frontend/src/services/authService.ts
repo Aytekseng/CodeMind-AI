@@ -1,3 +1,4 @@
+import { clearApiKeys } from "@/lib/apiKeys"
 import api, { ApiResponse } from "./apiClient"
 
 export interface UserProfile {
@@ -72,6 +73,7 @@ export const authService = {
   },
 
   clearSession: () => {
+    clearApiKeys()
     if (typeof window !== "undefined") {
       localStorage.removeItem("token")
       localStorage.removeItem("accessToken")

@@ -1,7 +1,8 @@
+# Demo credentials below are nonfunctional placeholders.
 import sqlite3
 import os
 
-AWS_SECRET_KEY = "AKIAIOSFODNN7EXAMPLE_SECRET_KEY_NEVER_COMMIT"
+AWS_SECRET_KEY = "DEMO_NONFUNCTIONAL_KEY_FOR_TESTS_SECRET_KEY_NEVER_COMMIT"
 ADMIN_PASSWORD = "SuperSecretPassword123!"
 
 def authenticate_user(username, password):

@@ -1,98 +1,61 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Confluent.Kafka;
 using CodeMind.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
 namespace CodeMind.Infrastructure.Messaging;
-
-public class KafkaMessageConsumer : IMessageConsumer
+public sealed class KafkaMessageConsumer(IConfiguration config, ILogger<KafkaMessageConsumer> logger) : IMessageConsumer
 {
-    private readonly IConfiguration _config;
-    private readonly ILogger<KafkaMessageConsumer> _logger;
-
-    public KafkaMessageConsumer(IConfiguration config, ILogger<KafkaMessageConsumer> logger)
+    public Task StartConsumingAsync<T>(string topic, Func<T, Task> handler, CancellationToken token) => Task.Run(async () =>
     {
-        _config = config;
-        _logger = logger;
-    }
-
-    public async Task StartConsumingAsync<T>(string topic, Func<T, Task> onMessageReceived, CancellationToken cancellationToken)
-    {
-        var bootstrapServers = _config["KafkaSettings:BootstrapServers"] ?? "localhost:9092";
-        var config = new ConsumerConfig
+        var broker = config["KafkaSettings:BootstrapServers"] ?? "localhost:9094";
+        using var consumer = new ConsumerBuilder<Ignore, string>(new ConsumerConfig {
+            BootstrapServers = broker, GroupId = "codemind-dotnet-consumer", AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = false, EnableAutoOffsetStore = false, MaxPollIntervalMs = 900000 }).Build();
+        using var dlq = new ProducerBuilder<Null, string>(new ProducerConfig {
+            BootstrapServers = broker, EnableIdempotence = true, MessageTimeoutMs = 15000 }).Build();
+        consumer.Subscribe(topic);
+        try
         {
-            BootstrapServers = bootstrapServers, 
-            GroupId = "codemind-dotnet-consumer",
-            AutoOffsetReset = AutoOffsetReset.Earliest,
-            MaxPollIntervalMs = 900000, // 15 dakika
-            SessionTimeoutMs = 45000,
-            EnableAutoCommit = true
-        };
-
-        var jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        await Task.Run(async () =>
-        {
-            try
+            while (!token.IsCancellationRequested)
             {
-                using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
-                consumer.Subscribe(topic);
-                _logger.LogInformation("Kafka tüketici '{Topic}' konusuna başarıyla abone oldu.", topic);
-
-                while (!cancellationToken.IsCancellationRequested)
+                ConsumeResult<Ignore, string> record;
+                try { record = consumer.Consume(token); }
+                catch (ConsumeException ex) { logger.LogWarning("Kafka unavailable: {Code}", ex.Error.Code); await Task.Delay(2000, token); continue; }
+                var attempts = 0;
+                while (true)
                 {
                     try
                     {
-                        var consumeResult = consumer.Consume(cancellationToken);
-                        if (consumeResult?.Message?.Value != null)
-                        {
-                            var messageStr = consumeResult.Message.Value;
-                            var eventData = JsonSerializer.Deserialize<T>(messageStr, jsonOptions);
-                            
-                            if (eventData != null && onMessageReceived != null)
-                            {
-                                await onMessageReceived(eventData);
-                            }
-                        }
-                    }
-                    catch (ConsumeException e)
-                    {
-                        _logger.LogWarning("Kafka tüketim uyarısı: {Reason}", e.Error.Reason);
-                        if (!cancellationToken.IsCancellationRequested)
-                        {
-                            await Task.Delay(2000, CancellationToken.None);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
+                        var value = JsonSerializer.Deserialize<T>(record.Message.Value, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (value == null) throw new JsonException("Null event");
+                        await handler(value);
                         break;
                     }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Kafka mesajı işlenirken hata oluştu.");
-                        if (!cancellationToken.IsCancellationRequested)
+                        attempts++;
+                        logger.LogError(ex, "Result processing attempt {Attempt} failed", attempts);
+                        if (attempts >= 4)
                         {
-                            await Task.Delay(2000, CancellationToken.None);
+                            // If DLQ publish fails, retry this exact record instead of committing past it.
+                            try
+                            {
+                                await dlq.ProduceAsync(topic + "-dead-letter", new Message<Null, string> { Value = record.Message.Value }, token);
+                                logger.LogError("Result persisted to dead-letter topic for recovery");
+                                break;
+                            }
+                            catch (KafkaException) { logger.LogWarning("Dead-letter broker unavailable; retaining record"); }
                         }
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Min(attempts * 2, 30)), token);
                     }
                 }
-                consumer.Close();
+                // A commit failure must restart the consumer instead of advancing to another record.
+                consumer.Commit(record);
             }
-            catch (OperationCanceledException)
-            {
-                // App is shutting down gracefully
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Kafka tüketici döngüsünde kritik hata.");
-            }
-        }, cancellationToken);
-    }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        finally { consumer.Close(); }
+    }, token);
 }

@@ -1,33 +1,17 @@
 #!/usr/bin/env bash
-set -e
-
-echo "================================================================"
-echo "          🛡️ CodeMind-AI Tek Tıkla Başlatıcı (Linux/macOS)       "
-echo "================================================================"
-echo ""
-
-if [ ! -f ".env" ]; then
-    echo "[*] .env dosyası bulunamadı, .env.example dosyasından kopyalanıyor..."
-    cp .env.example .env
-    echo "[+] .env dosyası oluşturuldu."
-fi
-
-echo "[*] Docker konteynerleri derleniyor ve arka planda başlatılıyor..."
-docker compose up -d --build
-
-echo ""
-echo "================================================================"
-echo "  ✅ CodeMind-AI Platformu Başarıyla Ayağa Kalktı!"
-echo "================================================================"
-echo ""
-echo "  🌐 Frontend Arayüzü : http://localhost:3000"
-echo "  🔌 Backend Swagger   : http://localhost:5083/swagger"
-echo "  📊 Kafka UI          : http://localhost:8081"
-echo "  📦 MinIO Konsolu     : http://localhost:9001 (minioadmin / minioadmin)"
-echo "  🔍 Seq Log Konsolu   : http://localhost:5341"
-echo ""
-echo "  👤 Demo Giriş Bilgileri:"
-echo "     - E-Posta : admin@codemind.ai"
-echo "     - Parola  : Password123!"
-echo ""
-echo "================================================================"
+set -euo pipefail
+cd "$(dirname "$0")"
+if [ ! -f .env ]; then cp .env.example .env; fi
+for setting in JWT_SECRET WORKER_SECRET; do
+    value="$(sed -n "s/^${setting}=//p" .env | tr -d '\r')"
+    if [ "${#value}" -lt 32 ] || [[ "$value" == CodeMind_Super_Secret* ]]; then
+        secret="$(openssl rand -hex 48)"
+        temporary="$(mktemp)"
+        awk -v key="$setting" -v val="$secret" 'BEGIN{done=0} $0 ~ "^"key"=" {print key"="val;done=1;next} {print} END{if(!done) print key"="val}' .env > "$temporary"
+        cat "$temporary" > .env
+        rm -f "$temporary"
+    fi
+done
+chmod 600 .env
+docker compose up -d --build --wait
+printf '%s\n' 'CodeMind-AI: http://localhost:3000' 'İlk hesabınızı Kayıt Ol sayfasından oluşturun.' 'Yerel analiz için Ollama ve seçili model hazır olmalıdır.'

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CodeMind.Domain.Entities;
 using CodeMind.Domain.Enums;
 using CodeMind.Domain.Interfaces;
@@ -6,134 +7,46 @@ using CodeMind.Api.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using CodeMind.Domain.Events;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-
 namespace CodeMind.Api.HostedServices;
-
-public class AnalysisResultBackgroundService : BackgroundService
+public class AnalysisResultBackgroundService(IMessageConsumer consumer, IServiceScopeFactory scopes,
+    IHubContext<AnalysisHub> hub, ILogger<AnalysisResultBackgroundService> logger) : BackgroundService
 {
-    private readonly IMessageConsumer _messageConsumer;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IHubContext<AnalysisHub> _hubContext;
-    private readonly ILogger<AnalysisResultBackgroundService> _logger;
-
-    public AnalysisResultBackgroundService(
-        IMessageConsumer messageConsumer, 
-        IServiceScopeFactory scopeFactory, 
-        IHubContext<AnalysisHub> hubContext,
-        ILogger<AnalysisResultBackgroundService> logger)
-    {
-        _messageConsumer = messageConsumer;
-        _scopeFactory = scopeFactory;
-        _hubContext = hubContext;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("AnalysisResultBackgroundService başlatıldı, 'analysis-results' kuyruğu dinleniyor...");
-
-        try
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => consumer.StartConsumingAsync<AnalysisCompletedEvent>(
+        "analysis-results", async result =>
         {
-            await _messageConsumer.StartConsumingAsync<AnalysisCompletedEvent>(
-                "analysis-results", 
-                async (eventData) => 
-                {
-                    if (eventData == null) return;
-
-                    try
-                    {
-                        _logger.LogInformation("Kafka'dan yeni analiz sonucu alındı. FileId: {FileId}, Severity: {Severity}", 
-                            eventData.FileId, eventData.Severity);
-
-                        using var scope = _scopeFactory.CreateScope();
-                        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                        // 1. Dokümanı veritabanından çek
-                        var doc = await dbContext.Documents
-                            .IgnoreQueryFilters()
-                            .Include(d => d.Project)
-                            .FirstOrDefaultAsync(d => d.Id == eventData.FileId, stoppingToken);
-
-                        // 2. Başarısızlık / Hata Kontrolü
-                        var isFailed = !eventData.IsSuccess || !string.IsNullOrEmpty(eventData.ErrorMessage);
-                        if (isFailed)
-                        {
-                            var errMsg = eventData.ErrorMessage ?? "Yapay zeka analizi sırasında bir hata meydana geldi.";
-                            _logger.LogWarning("AI Worker analiz başarısızlığı bildirdi. FileId: {FileId}, Hata: {Error}", 
-                                eventData.FileId, errMsg);
-
-                            if (doc != null)
-                            {
-                                doc.Status = DocumentStatus.Failed;
-                                await dbContext.SaveChangesAsync(stoppingToken);
-                            }
-
-                            // SignalR üzerinden frontend'e iptal / hata bildir
-                            await _hubContext.Clients.All.SendAsync(
-                                "ReceiveAnalysisFailure",
-                                eventData.FileId.ToString(),
-                                errMsg,
-                                doc?.FileName ?? "",
-                                doc?.ProjectId.ToString() ?? "",
-                                eventData.ModelUsed ?? "",
-                                cancellationToken: stoppingToken
-                            );
-
-                            return;
-                        }
-
-                        // 2. Başarılı ise Doküman durumunu güncelle
-                        if (doc != null)
-                        {
-                            doc.Status = DocumentStatus.Completed;
-                        }
-
-                        // 2. Analiz Raporunu kaydet
-                        var report = new AnalysisReport
-                        {
-                            Id = Guid.NewGuid(),
-                            DocumentId = eventData.FileId,
-                            Severity = eventData.Severity ?? "Medium",
-                            AiSuggestion = eventData.AiSuggestion ?? "Analiz tamamlandı.",
-                            ModelUsed = eventData.ModelUsed ?? "Llama 3"
-                        };
-                        
-                        dbContext.AnalysisReports.Add(report);
-                        await dbContext.SaveChangesAsync(stoppingToken);
-                        
-                        _logger.LogInformation("Analiz raporu veritabanına kaydedildi. ReportId: {ReportId}, DocumentId: {DocumentId}, Model: {ModelUsed}", 
-                            report.Id, eventData.FileId, report.ModelUsed);
-
-                        // 3. SignalR ile frontend'e anlık bildir (Dosya adı, Proje ID'si ve Kullanılan Model ile zenginleştirildi)
-                        await _hubContext.Clients.All.SendAsync(
-                            "ReceiveAnalysisResult",
-                            eventData.FileId.ToString(),
-                            eventData.Severity ?? "Medium",
-                            eventData.AiSuggestion ?? "",
-                            doc?.FileName ?? "",
-                            doc?.ProjectId.ToString() ?? "",
-                            eventData.ModelUsed ?? "Llama 3",
-                            cancellationToken: stoppingToken
-                        );
-
-                        _logger.LogInformation("SignalR istemcilerine analiz tamamlandı bildirimi fırlatıldı. FileId: {FileId}, FileName: {FileName}, Model: {ModelUsed}", 
-                            eventData.FileId, doc?.FileName, eventData.ModelUsed);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Kafka'dan alınan analiz sonucu işlenirken hata oluştu. FileId: {FileId}", eventData.FileId);
-                    }
-                }, 
-                stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("AnalysisResultBackgroundService durduruluyor (CancellationRequested).");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AnalysisResultBackgroundService beklenmedik kritik bir hata ile karşılaştı.");
-        }
-    }
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var vault = scope.ServiceProvider.GetRequiredService<ITempKeyVaultService>();
+            var doc = await db.Documents.IgnoreQueryFilters().Include(d => d.Project)
+                .FirstOrDefaultAsync(d => d.Id == result.FileId, stoppingToken);
+            // Terminal transitions are immutable; duplicate deliveries and deleted jobs are harmless.
+            if (doc == null || doc.Status is DocumentStatus.Cancelled or DocumentStatus.Completed or DocumentStatus.Failed) return;
+            bool failed = !result.IsSuccess || !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            if (!failed && (result.Findings.Any(f => f.LineNumber < 1 || !new[] { "Kritik", "Yüksek", "Orta", "Düşük" }.Contains(f.Severity)) ||
+                !new[] { "Kritik", "Yüksek", "Orta", "Düşük", "Temiz" }.Contains(result.Severity)))
+                throw new InvalidOperationException("Invalid structured analysis result");
+            doc.Status = failed ? DocumentStatus.Failed : DocumentStatus.Completed;
+            doc.ErrorMessage = failed ? "Analiz tamamlanamadı. Anahtarınızı ve model erişimini kontrol edip dosyayı yeniden yükleyin." : null;
+            if (!failed)
+                db.AnalysisReports.Add(new AnalysisReport { Id = Guid.NewGuid(), DocumentId = doc.Id,
+                    Severity = result.Severity, AiSuggestion = result.AiSuggestion, ModelUsed = result.ModelUsed,
+                    FindingsJson = JsonSerializer.Serialize(result.Findings), FindingsCount = result.Findings.Count,
+                    LineNumber = result.Findings.FirstOrDefault()?.LineNumber ?? 0 });
+            try { await db.SaveChangesAsync(stoppingToken); }
+            catch (DbUpdateConcurrencyException) { return; } // A cancellation/deletion or another consumer won.
+            vault.RemoveKey(doc.Id);
+            // Groups include the current security stamp. Revoked connections receive no further data.
+            var recipients = await db.Users.IgnoreQueryFilters().Where(u => u.TenantId == doc.Project.TenantId &&
+                !u.MustChangePassword && (u.Role == "Admin" || u.Role == "Auditor" || u.Id == doc.UploadedByUserId))
+                .Select(u => new { u.Id, u.SecurityStamp }).ToListAsync(stoppingToken);
+            var clients = hub.Clients.Groups(recipients.Select(u => AnalysisHub.UserGroup(u.Id, u.SecurityStamp)).ToList());
+            try
+            {
+                if (failed) await clients.SendAsync("ReceiveAnalysisFailure", doc.Id.ToString(), doc.ErrorMessage,
+                    doc.FileName, doc.ProjectId.ToString(), result.ModelUsed ?? "", cancellationToken: stoppingToken);
+                else await clients.SendAsync("ReceiveAnalysisResult", doc.Id.ToString(), result.Severity, result.AiSuggestion,
+                    doc.FileName, doc.ProjectId.ToString(), result.ModelUsed ?? "", cancellationToken: stoppingToken);
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "Notification failed; persisted job can be read via REST"); }
+        }, stoppingToken);
 }

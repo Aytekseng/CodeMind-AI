@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { History, Shield, Filter } from "lucide-react"
+import { History } from "lucide-react"
 import { AnalysisHistoryTable } from "@/components/dashboard/AnalysisHistoryTable"
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth/AuthGuard"

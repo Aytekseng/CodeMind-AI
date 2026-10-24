@@ -23,6 +23,8 @@ public class DocumentController : ControllerBase
         _documentService = documentService;
     }
 
+    [Authorize(Roles = "Admin,Developer")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("upload")]
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadFile([FromForm] UploadDocumentRequest request)
@@ -68,6 +70,18 @@ public class DocumentController : ControllerBase
     {
         var response = await _documentService.GetProjectDocumentsAsync(projectId);
         return Ok(response);
+    }
+
+    [HttpPost("status")]
+    public async Task<IActionResult> GetStatuses([FromBody] Guid[] ids, [FromServices] CodeMind.Infrastructure.Data.AppDbContext db)
+    {
+        if (ids.Length > 100) return BadRequest();
+        var documents = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.Include(db.Documents.Where(d => ids.Contains(d.Id)), d => d.AnalysisReports));
+        return Ok(documents.Select(d => new { fileId = d.Id, status = d.Status.ToString(), fileName = d.FileName,
+            projectId = d.ProjectId, modelUsed = d.Model, errorMessage = d.ErrorMessage,
+            severity = d.AnalysisReports.FirstOrDefault()?.Severity,
+            aiSuggestion = d.AnalysisReports.FirstOrDefault()?.AiSuggestion }));
     }
 
     [HttpGet("history")]
@@ -132,6 +146,7 @@ public class DocumentController : ControllerBase
         return File(pdfBytes, "application/pdf", downloadName);
     }
 
+    [Authorize(Roles = "Admin,Developer")]
     [HttpPost("{documentId:guid}/cancel")]
     public async Task<IActionResult> CancelAnalysis(Guid documentId)
     {

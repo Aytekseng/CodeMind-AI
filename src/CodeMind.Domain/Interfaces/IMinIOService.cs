@@ -7,4 +7,5 @@ public interface IMinIOService
 {
     Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType);
     Task<string> GetFileTextAsync(string objectName);
+    Task DeleteFileAsync(string objectName);
 }

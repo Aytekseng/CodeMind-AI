@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Text;
 using CodeMind.Api.Hubs;
 using CodeMind.Api.Middlewares;
@@ -24,7 +27,7 @@ try
     Log.Information("CodeMind API başlatılıyor...");
 
     // Kök dizindeki (root) .env dosyasını bulabilmesi için TraversePath kullanıyoruz
-    DotNetEnv.Env.TraversePath().Load();
+    DotNetEnv.Env.NoClobber().TraversePath().Load();
 
     // QuestPDF Lisans ve Font Ayarları
     QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -32,6 +35,26 @@ try
     QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
 
     var builder = WebApplication.CreateBuilder(args);
+    // Explicit mappings support the documented root .env in local development.
+    builder.Configuration["JwtSettings:Secret"] = builder.Configuration["JwtSettings:Secret"] is { Length: > 0 } jwt ? jwt : Environment.GetEnvironmentVariable("JWT_SECRET");
+    builder.Configuration["Worker:Secret"] = builder.Configuration["Worker:Secret"] is { Length: > 0 } worker ? worker : Environment.GetEnvironmentVariable("WORKER_SECRET");
+    if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+    {
+        var cs = new Npgsql.NpgsqlConnectionStringBuilder { Host = "localhost", Port = 5433,
+            Database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "codemind_db",
+            Username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "codemind",
+            Password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "" };
+        builder.Configuration["ConnectionStrings:DefaultConnection"] = cs.ConnectionString;
+    }
+    builder.Configuration["KafkaSettings:BootstrapServers"] ??= Environment.GetEnvironmentVariable("KAFKA_BROKER") ?? "localhost:9094";
+    builder.Configuration["MinIOSettings:Endpoint"] ??= Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "localhost:9000";
+    builder.Configuration["MinIOSettings:AccessKey"] ??= Environment.GetEnvironmentVariable("MINIO_ROOT_USER");
+    builder.Configuration["MinIOSettings:SecretKey"] ??= Environment.GetEnvironmentVariable("MINIO_ROOT_PASSWORD");
+    var jwtSecret = builder.Configuration["JwtSettings:Secret"] ?? "";
+    var workerSecret = builder.Configuration["Worker:Secret"] ?? "";
+    if (jwtSecret.Length < 32 || jwtSecret.Contains("CodeMind_Super_Secret") || workerSecret.Length < 32 || jwtSecret == workerSecret)
+        throw new InvalidOperationException("Configure distinct random JWT_SECRET and WORKER_SECRET (at least 32 characters).");
+
 
     // Serilog'u ana Host logger olarak yapılandır (appsettings.json ve DI servislerini okur)
     builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -66,13 +89,35 @@ try
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<IMessageConsumer, KafkaMessageConsumer>();
     builder.Services.AddHostedService<CodeMind.Api.HostedServices.AnalysisResultBackgroundService>();
+    builder.Services.AddHostedService<CodeMind.Api.HostedServices.OutboxPublisher>();
+    builder.Services.AddHealthChecks().AddCheck<CodeMind.Api.Security.DatabaseHealthCheck>("database");
     builder.Services.Configure<HostOptions>(options =>
     {
-        options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+        options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.StopHost;
     });
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/analysis-hub"))
+                        context.Token = context.Request.Query["access_token"];
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    var claims = context.Principal!;
+                    if (!Guid.TryParse(claims.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ||
+                        !Guid.TryParse(claims.FindFirstValue("TenantId"), out var tenantId) || tenantId == Guid.Empty)
+                    { context.Fail("Invalid identity"); return; }
+                    var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                    var user = await db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == id && u.TenantId == tenantId);
+                    if (!CodeMind.Api.Security.SessionAuthorization.Matches(user, claims))
+                        context.Fail("Session revoked");
+                }
+            };
             options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -85,6 +130,16 @@ try
             };
         });
     builder.Services.AddAuthorization();
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = 429;
+        options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        options.AddPolicy("upload", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirstValue("TenantId") ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    });
     builder.Services.AddControllers();
     builder.Services.AddAutoMapper(cfg => 
     {
@@ -96,7 +151,8 @@ try
     {
         options.AddPolicy("AllowFrontend", policy =>
         {
-            policy.SetIsOriginAllowed(origin => true)
+            var origins = (builder.Configuration["AllowedOrigins"] ?? "http://localhost:3000,http://localhost:3050").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            policy.WithOrigins(origins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -140,7 +196,7 @@ try
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        await DbInitializer.InitializeAsync(dbContext, startupLogger);
+        await DbInitializer.InitializeAsync(dbContext, startupLogger, builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("SeedDemoData"));
     }
 
     // Configure the HTTP request pipeline.
@@ -150,14 +206,24 @@ try
 
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseRateLimiter();
+    app.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue("MustChangePassword") == "True" &&
+            !context.Request.Path.Equals(new PathString("/api/auth/profile")) && !context.Request.Path.Equals(new PathString("/api/auth/me")))
+        { context.Response.StatusCode = 403; await context.Response.WriteAsJsonAsync(new { message = "Önce geçici parolanızı değiştirin." }); return; }
+        await next(context);
+    });
     app.MapControllers();
-    app.MapHub<AnalysisHub>("/analysis-hub");
+    app.MapHub<AnalysisHub>("/analysis-hub", options => options.CloseOnAuthenticationExpiration = true);
+    app.MapHealthChecks("/health");
 
     app.Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "CodeMind API beklenmeyen bir hata sebebiyle sonlandı.");
+    Environment.ExitCode = 1;
 }
 finally
 {

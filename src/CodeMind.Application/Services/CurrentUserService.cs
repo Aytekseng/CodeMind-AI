@@ -7,6 +7,7 @@ namespace CodeMind.Application.Services;
 
 public class CurrentUserService : ICurrentUserService
 {
+    public string Role => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public CurrentUserService(IHttpContextAccessor httpContextAccessor)

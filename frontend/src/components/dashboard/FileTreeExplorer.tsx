@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Folder, FolderOpen, FileCode2, Search, ShieldAlert, ShieldCheck, Shield, ChevronRight, ChevronDown, CheckCircle2, Clock } from "lucide-react"
+import { FolderOpen, FileCode2, Search } from "lucide-react"
 import { ProjectFile } from "@/services/documentService"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"

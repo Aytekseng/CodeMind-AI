@@ -32,8 +32,14 @@ public class AuthService : IAuthService
 
     public async Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterRequestDto requestDto)
     {
+        requestDto.Email = requestDto.Email.Trim().ToLowerInvariant();
+        if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(requestDto.Email) ||
+            requestDto.Password.Length < 12 || System.Text.Encoding.UTF8.GetByteCount(requestDto.Password) > 72 ||
+            string.IsNullOrWhiteSpace(requestDto.FirstName) || string.IsNullOrWhiteSpace(requestDto.LastName))
+            return ApiResponse<AuthResponseDto>.Fail("Geçerli ad, soyad, e-posta ve 12-72 bayt parola gerekli.");
+        await using var registration = await _context.Database.BeginTransactionAsync();
         // 1. E-posta kontrolü (Filtreleri yoksayarak tüm veritabanında arıyoruz)
-        var userExists = await _context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == requestDto.Email);
+        var userExists = await _context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == requestDto.Email.Trim().ToLowerInvariant());
         if (userExists)
             return ApiResponse<AuthResponseDto>.Fail("Bu e-posta adresi zaten kullanımda.");
 
@@ -54,6 +60,8 @@ public class AuthService : IAuthService
 
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
+
+        await registration.CommitAsync();
 
         // 4. Token üret ve dön
         var token = GenerateJwtToken(newUser);
@@ -79,7 +87,7 @@ public class AuthService : IAuthService
         var user = await _context.Users
             .IgnoreQueryFilters()
             .Include(u => u.Tenant)
-            .FirstOrDefaultAsync(u => u.Email == requestDto.Email);
+            .FirstOrDefaultAsync(u => u.Email == requestDto.Email.Trim().ToLowerInvariant());
 
         if (user == null)
             return ApiResponse<AuthResponseDto>.Fail("E-posta adresi veya şifre hatalı.");
@@ -154,7 +162,7 @@ public class AuthService : IAuthService
             return ApiResponse<AuthResponseDto>.Fail("Ad ve soyad alanları boş bırakılamaz.");
         }
 
-        if (string.IsNullOrWhiteSpace(requestDto.Email) || !requestDto.Email.Contains('@'))
+        if (string.IsNullOrWhiteSpace(requestDto.Email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(requestDto.Email.Trim()))
         {
             return ApiResponse<AuthResponseDto>.Fail("Lütfen geçerli bir e-posta adresi girin.");
         }
@@ -201,9 +209,9 @@ public class AuthService : IAuthService
                 return ApiResponse<AuthResponseDto>.Fail("Şifrenizi değiştirmek için lütfen mevcut şifrenizi girin.");
             }
 
-            if (requestDto.NewPassword.Length < 6)
+            if (requestDto.NewPassword.Length < 12 || Encoding.UTF8.GetByteCount(requestDto.NewPassword) > 72)
             {
-                return ApiResponse<AuthResponseDto>.Fail("Yeni şifreniz en az 6 karakter uzunluğunda olmalıdır.");
+                return ApiResponse<AuthResponseDto>.Fail("Yeni şifreniz en az 12 karakter (en fazla 72 bayt) uzunluğunda olmalıdır.");
             }
 
             bool isPasswordCorrect = BCrypt.Net.BCrypt.Verify(requestDto.CurrentPassword, user.PasswordHash);
@@ -212,8 +220,11 @@ public class AuthService : IAuthService
                 return ApiResponse<AuthResponseDto>.Fail("Mevcut şifreniz hatalı.");
             }
 
+            if (requestDto.NewPassword == requestDto.CurrentPassword)
+                return ApiResponse<AuthResponseDto>.Fail("Yeni parola mevcut paroladan farklı olmalıdır.");
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(requestDto.NewPassword);
             user.MustChangePassword = false;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
         }
 
         await _context.SaveChangesAsync();
@@ -246,13 +257,14 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.GivenName, user.FirstName ?? string.Empty),
             new Claim(ClaimTypes.Surname, user.LastName ?? string.Empty),
             new Claim(ClaimTypes.Role, user.Role ?? "Developer"),
-            new Claim("MustChangePassword", user.MustChangePassword.ToString())
+            new Claim("MustChangePassword", user.MustChangePassword.ToString()),
+            new Claim("SecurityStamp", user.SecurityStamp)
         };
 
         var secret = _config["JwtSettings:Secret"];
         if (string.IsNullOrEmpty(secret))
         {
-            secret = Environment.GetEnvironmentVariable("JwtSettings__Secret") ?? "CodeMind_Super_Secret_Key_For_JWT_Auth_2026!+";
+            throw new InvalidOperationException("JWT secret is required.");
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
@@ -262,7 +274,7 @@ public class AuthService : IAuthService
             issuer: _config["JwtSettings:Issuer"] ?? "CodeMindApi",
             audience: _config["JwtSettings:Audience"] ?? "CodeMindClients",
             claims: claims,
-            expires: DateTime.Now.AddHours(8),
+            expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: creds
         );
 

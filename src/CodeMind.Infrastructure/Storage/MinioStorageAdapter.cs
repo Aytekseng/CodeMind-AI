@@ -41,6 +41,9 @@ public class MinioStorageAdapter : IMinIOService
         return objectName;
     }
 
+    public Task DeleteFileAsync(string objectName) => _minioClient.RemoveObjectAsync(
+        new RemoveObjectArgs().WithBucket(_bucketName).WithObject(objectName));
+
     public async Task<string> GetFileTextAsync(string objectName)
     {
         try

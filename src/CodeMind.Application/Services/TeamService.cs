@@ -14,13 +14,17 @@ namespace CodeMind.Application.Services;
 
 public class TeamService : ITeamService
 {
+    private readonly IMinIOService _storage;
+    private readonly ITempKeyVaultService _vault;
     private readonly IAppDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<TeamService> _logger;
 
-    public TeamService(IAppDbContext context, ICurrentUserService currentUserService, ILogger<TeamService> logger)
+    public TeamService(IAppDbContext context, ICurrentUserService currentUserService, ILogger<TeamService> logger, IMinIOService storage, ITempKeyVaultService vault)
     {
         _context = context;
+        _storage = storage;
+        _vault = vault;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -58,20 +62,25 @@ public class TeamService : ITeamService
             return ApiResponse<TeamMemberDto>.Fail("Geçerli bir şirket/çalışma alanı oturumu bulunamadı.");
         }
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        if (!await _context.LockTenantAsync(tenantId) ||
+            !await _context.Users.AsNoTracking().AnyAsync(u => u.Id == _currentUserService.UserId && u.TenantId == tenantId && u.Role == Roles.Admin))
+            return ApiResponse<TeamMemberDto>.Fail("Güncel yönetici oturumu ve şirket kaydı gerekli.");
+
         // 1. Temel Doğrulamalar
         if (string.IsNullOrWhiteSpace(requestDto.FirstName) || string.IsNullOrWhiteSpace(requestDto.LastName))
         {
             return ApiResponse<TeamMemberDto>.Fail("Üyenin adı ve soyadı boş bırakılamaz.");
         }
 
-        if (string.IsNullOrWhiteSpace(requestDto.Email) || !requestDto.Email.Contains('@'))
+        if (string.IsNullOrWhiteSpace(requestDto.Email) || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(requestDto.Email.Trim()))
         {
             return ApiResponse<TeamMemberDto>.Fail("Lütfen geçerli bir e-posta adresi girin.");
         }
 
-        if (string.IsNullOrWhiteSpace(requestDto.TemporaryPassword) || requestDto.TemporaryPassword.Length < 6)
+        if (string.IsNullOrWhiteSpace(requestDto.TemporaryPassword) || requestDto.TemporaryPassword.Length < 12 || System.Text.Encoding.UTF8.GetByteCount(requestDto.TemporaryPassword) > 72)
         {
-            return ApiResponse<TeamMemberDto>.Fail("Geçici şifre en az 6 karakter uzunluğunda olmalıdır.");
+            return ApiResponse<TeamMemberDto>.Fail("Geçici şifre en az 12 karakter (en fazla 72 bayt) uzunluğunda olmalıdır.");
         }
 
         // 2. Rol Doğrulaması
@@ -108,6 +117,7 @@ public class TeamService : ITeamService
 
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         _logger.LogInformation("Yeni takım üyesi eklendi. UserId: {UserId}, Email: {Email}, Role: {Role}, TenantId: {TenantId}",
             newUser.Id, newUser.Email, newUser.Role, tenantId);
@@ -133,6 +143,11 @@ public class TeamService : ITeamService
             return ApiResponse<TeamMemberDto>.Fail("Geçerli bir şirket oturumu bulunamadı.");
         }
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        if (!await _context.LockTenantAsync(tenantId) ||
+            !await _context.Users.AsNoTracking().AnyAsync(u => u.Id == _currentUserService.UserId && u.TenantId == tenantId && u.Role == Roles.Admin))
+            return ApiResponse<TeamMemberDto>.Fail("Güncel yönetici oturumu ve şirket kaydı gerekli.");
+
         var targetRole = Roles.All.FirstOrDefault(r => string.Equals(r, requestDto.Role, StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrEmpty(targetRole))
         {
@@ -156,7 +171,9 @@ public class TeamService : ITeamService
         }
 
         user.Role = targetRole;
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         _logger.LogInformation("Kullanıcı rolü güncellendi. UserId: {UserId}, Yeni Rol: {Role}", user.Id, user.Role);
 
@@ -183,6 +200,11 @@ public class TeamService : ITeamService
             return ApiResponse<string>.Fail("Geçerli bir şirket oturumu bulunamadı.");
         }
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        if (!await _context.LockTenantAsync(tenantId) ||
+            !await _context.Users.AsNoTracking().AnyAsync(u => u.Id == _currentUserService.UserId && u.TenantId == tenantId && u.Role == Roles.Admin))
+            return ApiResponse<string>.Fail("Güncel yönetici oturumu ve şirket kaydı gerekli.");
+
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == memberId && u.TenantId == tenantId);
         if (user == null)
         {
@@ -202,6 +224,7 @@ public class TeamService : ITeamService
         // Şirketten çıkarılan kullanıcının hesabı tamamen silinir (Zombi hesap kalmaz)
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         _logger.LogInformation("Takım üyesinin hesabı silindi. UserId: {UserId}, Email: {Email}, TenantId: {TenantId}",
             user.Id, user.Email, tenantId);
@@ -218,6 +241,11 @@ public class TeamService : ITeamService
         {
             return ApiResponse<string>.Fail("Geçerli bir oturum bulunamadı.");
         }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        if (!await _context.LockTenantAsync(tenantId) ||
+            !await _context.Users.AsNoTracking().AnyAsync(u => u.Id == _currentUserService.UserId && u.TenantId == tenantId && u.Role == Roles.Admin))
+            return ApiResponse<string>.Fail("Güncel yönetici oturumu ve şirket kaydı gerekli.");
 
         // 1. İşlemi yapan Admin kullanıcısını doğrula
         var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId && u.TenantId == tenantId);
@@ -246,7 +274,6 @@ public class TeamService : ITeamService
         }
 
         // 4. Şirkete ait tüm verileri transaction ile cascade olarak imha et
-        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             // a) Analysis Reports
@@ -266,6 +293,13 @@ public class TeamService : ITeamService
                 .ToListAsync();
             if (documents.Any())
             {
+                // Remove source objects and legacy embeddings before reporting successful erasure.
+                foreach (var document in documents)
+                {
+                    await _storage.DeleteFileAsync(document.StorageUrl);
+                    _vault.RemoveKey(document.Id);
+                }
+                await _context.DeleteLegacyEmbeddingsAsync(documents.Select(d => d.Id).ToArray());
                 _context.Documents.RemoveRange(documents);
             }
 
@@ -304,7 +338,7 @@ public class TeamService : ITeamService
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Şirket silme işlemi sırasında hata oluştu. TenantId: {TenantId}", tenantId);
-            return ApiResponse<string>.Fail("Şirket silinirken beklenmeyen bir hata oluştu: " + ex.Message);
+            return ApiResponse<string>.Fail("Şirket silme tamamlanamadı. Depolama temizliği için işlemi tekrar deneyin.");
         }
     }
 

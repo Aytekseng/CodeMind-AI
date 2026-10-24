@@ -1,5 +1,5 @@
 # Stage 1: Build & Publish
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:747cbade5bfd918a175ac32f8f1d931edec2c7d0d5397a3de72eaef1ac1f66d2 AS build
 WORKDIR /src
 
 # Proje dosyalarını kopyala ve restore et (Docker cache avantajı için önce csproj'lar)
@@ -20,7 +20,7 @@ WORKDIR /src/src/CodeMind.Api
 RUN dotnet publish CodeMind.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:8af87eba5e7cdafb1514d7388be287365da97c132509e84dfe252ffd552398ca AS runtime
 WORKDIR /app
 
 # QuestPDF Linux Skia gereksinimleri (libfontconfig1 & libfreetype6)

@@ -57,7 +57,8 @@ public class GlobalExceptionMiddleware
         var statusCode = exception switch
         {
             BadHttpRequestException => (int)HttpStatusCode.BadRequest,
-            ArgumentException or InvalidOperationException => (int)HttpStatusCode.BadRequest,
+            ArgumentException => (int)HttpStatusCode.BadRequest,
+            Microsoft.EntityFrameworkCore.DbUpdateException { InnerException: Npgsql.PostgresException { SqlState: "23505" } } => (int)HttpStatusCode.Conflict,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             KeyNotFoundException => (int)HttpStatusCode.NotFound,
             _ => (int)HttpStatusCode.InternalServerError
@@ -65,10 +66,13 @@ public class GlobalExceptionMiddleware
 
         context.Response.StatusCode = statusCode;
 
-        var response = ApiResponse<object>.Fail(
-            exception.Message,
-            statusCode == 500 ? "Sunucu tarafında beklenmeyen bir hata meydana geldi." : exception.Message
-        );
+        var message = statusCode switch
+        {
+            500 => "Sunucu tarafında beklenmeyen bir hata meydana geldi.",
+            409 => "Bu kayıt zaten kullanımda. Bilgilerinizi kontrol edin.",
+            _ => exception.Message
+        };
+        var response = ApiResponse<object>.Fail(message, message);
 
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var json = JsonSerializer.Serialize(response, jsonOptions);

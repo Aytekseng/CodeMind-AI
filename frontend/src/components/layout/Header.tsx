@@ -1,8 +1,9 @@
 "use client"
+import { useRouter } from "next/navigation"
 
 import * as React from "react"
 import Link from "next/link"
-import { Shield, Sparkles, Bell, ExternalLink, ShieldAlert, CheckCircle2, User, LogOut, Building2, LogIn, UserPlus } from "lucide-react"
+import { Shield, Bell, ExternalLink, ShieldAlert, CheckCircle2, LogOut, Building2, LogIn, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useSignalR, AnalysisResultEvent } from "@/hooks/useSignalR"
@@ -27,6 +28,7 @@ function GithubIcon({ className }: { className?: string }) {
 }
 
 export function Header() {
+  const router = useRouter()
   const { latestResult } = useSignalR()
   const { user, isAuthenticated, logout } = useAuth()
   const [notifications, setNotifications] = React.useState<AnalysisResultEvent[]>([])
@@ -37,13 +39,14 @@ export function Header() {
   const notifDropdownRef = React.useRef<HTMLDivElement>(null)
   const userDropdownRef = React.useRef<HTMLDivElement>(null)
 
-  // Listen to SignalR notifications and append to list
-  React.useEffect(() => {
+  const [seenResult, setSeenResult] = React.useState<AnalysisResultEvent | null>(null)
+  if (latestResult !== seenResult) {
+    setSeenResult(latestResult)
     if (latestResult) {
-      setNotifications((prev) => [latestResult, ...prev])
-      setUnreadCount((prev) => prev + 1)
+      setNotifications(prev => [latestResult, ...prev.filter(n => n.fileId !== latestResult.fileId)].slice(0, 50))
+      setUnreadCount(prev => prev + 1)
     }
-  }, [latestResult])
+  }
 
   // Close dropdowns on outside click
   React.useEffect(() => {
@@ -160,7 +163,7 @@ export function Header() {
                     <div
                       key={idx}
                       onClick={() => {
-                        window.location.href = `/dashboard?docId=${n.fileId}`
+                        router.push(`/dashboard?docId=${n.fileId}`)
                       }}
                       className="p-3.5 hover:bg-white/[0.04] transition-colors cursor-pointer space-y-1.5"
                     >
